@@ -73,6 +73,10 @@ app.post("/api/auth/login", async (req, res) => {
     .eq('email', email)
     .single();
   
+  if (error) {
+    console.error("Supabase login error:", error);
+  }
+  
   if (user && bcrypt.compareSync(password, user.password)) {
     const { password: _, ...userWithoutPassword } = user;
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
