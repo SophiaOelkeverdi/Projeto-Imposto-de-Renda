@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: professionals
+    // Fields: name (string), email (string), role (string: Administrador|Contador)
+    //
+    // Collection: clients
+    // Fields: code, name, cpf, type, company, phone, email, observations, needs_declaration
+    //
+    // Collection: declarations
+    // Fields: client_id, professional_id, received_date, status, etc.
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/professionals/$(request.auth.uid)).data.role == 'Administrador' ||
+         (request.auth.token.email == "sophia.verdi@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isProfessional() {
+      return isAuthenticated() && 
+        (exists(/databases/$(database)/documents/professionals/$(request.auth.uid)) || isAdmin());
+    }
+
+    // Validation Functions
+    function isValidProfessional(data) {
+      return data.keys().hasAll(['name', 'email', 'role']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$') &&
+             data.role in ['Administrador', 'Contador'];
+    }
+
+    function isValidClient(data) {
+      return data.keys().hasAll(['name', 'cpf', 'type']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.cpf is string && data.cpf.size() >= 11 && data.cpf.size() <= 14 &&
+             data.type in ['PF', 'SOCIO'];
+    }
+
+    function isValidDeclaration(data) {
+      return data.keys().hasAll(['client_id', 'status']) &&
+             data.client_id is string &&
+             data.status in ['Recebido', 'Em processamento', 'Aguardando cliente', 'Aguardando pagamento', 'Concluído', 'Transmitido'];
+    }
+
+    // Rules
+    match /professionals/{profId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidProfessional(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow read: if isProfessional();
+      allow create, update: if isProfessional() && isValidClient(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /declarations/{declId} {
+      allow read: if isProfessional();
+      allow create, update: if isProfessional() && isValidDeclaration(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /calls/{callId} {
+        allow read, write: if isProfessional();
+      }
+
+      match /attachments/{attId} {
+        allow read, write: if isProfessional();
+      }
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

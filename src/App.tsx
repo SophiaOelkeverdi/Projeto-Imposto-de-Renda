@@ -47,67 +47,49 @@ import {
   Pie
 } from 'recharts';
 
-// Types
-type ClientType = 'PF' | 'SOCIO';
-type DeclarationStatus = 'Recebido' | 'Em processamento' | 'Aguardando cliente' | 'Aguardando pagamento' | 'Concluído' | 'Transmitido';
+// Firebase Imports
+import { 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
+} from 'firebase/auth';
+import { 
+  collection, 
+  query, 
+  onSnapshot, 
+  doc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocs,
+  where,
+  orderBy,
+  setDoc,
+  getDoc,
+  writeBatch,
+  Timestamp
+} from 'firebase/firestore';
+import { auth, db, storage } from './firebase';
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from 'firebase/storage';
 
-interface Client {
-  id: number;
-  code?: string;
-  name: string;
-  cpf: string;
-  type: ClientType;
-  company?: string;
-  phone?: string;
-  email?: string;
-  observations?: string;
-  needs_declaration: number;
-}
+import { 
+  Client, 
+  ClientType,
+  Professional, 
+  Declaration, 
+  Call, 
+  Attachment, 
+  DeclarationStatus 
+} from './types';
 
-interface Professional {
-  id: number;
-  name: string;
-  email: string;
-  role?: string;
-}
-
-interface Declaration {
-  id: number;
-  client_id: number;
-  client_name: string;
-  client_cpf: string;
-  client_type: ClientType;
-  client_company?: string;
-  client_code?: string;
-  professional_id?: number;
-  professional_name?: string;
-  received_date?: string;
-  completion_date?: string;
-  transmission_date?: string;
-  status: DeclarationStatus;
-  has_tax_to_pay: number;
-  tax_amount: number;
-}
-
-interface Call {
-  id: number;
-  declaration_id: number;
-  professional_id: number;
-  professional_name: string;
-  call_date: string;
-  summary: string;
-  status_after_call: string;
-}
-
-interface Attachment {
-  id: number;
-  declaration_id: number;
-  filename: string;
-  original_name: string;
-  mime_type: string;
-  file_size: number;
-  upload_date: string;
-}
 
 // Components
 const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) => (
@@ -141,10 +123,10 @@ const StatusBadge = ({ status }: { status: DeclarationStatus }) => {
   );
 };
 
-const Login = ({ onLogin, sessionExpired }: { onLogin: (user: Professional, token: string) => void, sessionExpired?: boolean }) => {
+const Login = ({ onLogin }: { onLogin: (user: Professional) => void }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(sessionExpired ? 'Sessão expirada. Por favor, entre novamente.' : '');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,30 +134,25 @@ const Login = ({ onLogin, sessionExpired }: { onLogin: (user: Professional, toke
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userDoc = await getDoc(doc(db, 'professionals', userCredential.user.uid));
       
-      const contentType = res.headers.get("content-type");
-      if (res.ok) {
-        if (contentType && contentType.includes("application/json")) {
-          const data = await res.json();
-          onLogin(data.user, data.token);
-        } else {
-          setError('Resposta do servidor inválida (esperado JSON)');
-        }
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as Professional;
+        onLogin({ ...userData, id: userCredential.user.uid });
       } else {
-        if (contentType && contentType.includes("application/json")) {
-          const err = await res.json();
-          setError(err.error || 'Erro ao fazer login');
-        } else {
-          setError(`Erro no servidor: ${res.status} ${res.statusText}`);
-        }
+        // If user exists in Auth but not in Firestore, create a default entry or show error
+        // For now, let's assume the admin created the user in both places
+        setError('Perfil profissional não encontrado no banco de dados.');
+        await signOut(auth);
       }
-    } catch (err) {
-      setError('Erro de conexão');
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('E-mail ou senha incorretos');
+      } else {
+        setError('Erro ao fazer login: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -296,13 +273,7 @@ export default function App() {
   const [clientCategoryFilter, setClientCategoryFilter] = useState('');
   const [clientNeedsDeclarationFilter, setClientNeedsDeclarationFilter] = useState<string>('all');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [currentUser, setCurrentUser] = useState<Professional | null>(() => {
-    const saved = localStorage.getItem('currentUser');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [authToken, setAuthToken] = useState<string | null>(() => {
-    return localStorage.getItem('authToken');
-  });
+  const [currentUser, setCurrentUser] = useState<Professional | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const validatePassword = (password: string) => {
@@ -314,128 +285,83 @@ export default function App() {
     return null;
   };
 
-  const authFetch = (url: string, options: RequestInit = {}) => {
-    const headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${authToken || ''}`
-    };
-    return fetch(url, { ...options, headers });
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   useEffect(() => {
-    if (currentUser && authToken) {
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-      localStorage.setItem('authToken', authToken);
-      fetchData();
-    } else {
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('authToken');
-    }
-  }, [currentUser, authToken]);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'professionals', user.uid));
+        if (userDoc.exists()) {
+          setCurrentUser({ ...userDoc.data() as Professional, id: user.uid });
+        } else {
+          // Fallback if doc doesn't exist yet
+          setCurrentUser({ id: user.uid, name: user.displayName || 'Usuário', email: user.email || '', role: 'Contador' });
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
+      setClients(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Client)));
+    });
+
+    const unsubDeclarations = onSnapshot(collection(db, 'declarations'), (snapshot) => {
+      setDeclarations(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Declaration)));
+    });
+
+    const unsubProfessionals = onSnapshot(collection(db, 'professionals'), (snapshot) => {
+      setProfessionals(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Professional)));
+    });
+
+    return () => {
+      unsubClients();
+      unsubDeclarations();
+      unsubProfessionals();
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (selectedDeclaration) {
-      fetchAttachments(selectedDeclaration.id);
-      fetchCalls(selectedDeclaration.id);
-      setIsReassigning(false);
-      setShowNewCall(false);
-      setNewCallSummary('');
+      const unsubAttachments = onSnapshot(collection(db, 'declarations', selectedDeclaration.id, 'attachments'), (snapshot) => {
+        setSelectedDeclarationAttachments(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Attachment)));
+      });
+
+      const unsubCalls = onSnapshot(collection(db, 'declarations', selectedDeclaration.id, 'calls'), (snapshot) => {
+        setSelectedDeclarationCalls(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Call)));
+      });
+
+      return () => {
+        unsubAttachments();
+        unsubCalls();
+      };
     }
   }, [selectedDeclaration]);
 
-  const professionalStats = useMemo(() => {
-    return professionals.map(prof => {
-      const profDeclarations = declarations.filter(d => d.professional_id === prof.id);
-      const total = profDeclarations.length;
-      const completed = profDeclarations.filter(d => d.status === 'Concluído' || d.status === 'Transmitido').length;
-      const remaining = total - completed;
-      const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-      
-      return {
-        name: prof.name,
-        total,
-        completed,
-        remaining,
-        percentage
-      };
-    });
-  }, [professionals, declarations]);
+  // Update stats based on declarations
+  useEffect(() => {
+    const total = declarations.length;
+    const inProgress = declarations.filter(d => !['Transmitido', 'Concluído'].includes(d.status)).length;
+    const completed = declarations.filter(d => d.status === 'Concluído').length;
+    const transmitted = declarations.filter(d => d.status === 'Transmitido').length;
+    const taxToPay = declarations.filter(d => d.has_tax_to_pay).length;
 
-  const fetchAttachments = async (declarationId: number) => {
-    try {
-      const res = await authFetch(`/api/declarations/${declarationId}/attachments`);
-      setSelectedDeclarationAttachments(await res.json());
-    } catch (error) {
-      console.error('Error fetching attachments:', error);
-    }
-  };
-
-  const fetchCalls = async (declarationId: number) => {
-    try {
-      const res = await authFetch(`/api/declarations/${declarationId}/calls`);
-      setSelectedDeclarationCalls(await res.json());
-    } catch (error) {
-      console.error('Error fetching calls:', error);
-    }
-  };
-
-  const fetchData = async () => {
-    if (!currentUser) return;
-    setLoading(true);
-    try {
-      const [statsRes, clientsRes, declsRes, profsRes] = await Promise.all([
-        authFetch('/api/dashboard/stats'),
-        authFetch('/api/clients'),
-        authFetch('/api/declarations'),
-        authFetch('/api/professionals')
-      ]);
-      
-      // Handle session expiration (401 or 403)
-      if (statsRes.status === 401 || statsRes.status === 403 || 
-          clientsRes.status === 401 || clientsRes.status === 403) {
-        console.warn("Session expired or unauthorized. Logging out...");
-        setCurrentUser(null);
-        setAuthToken(null);
-        setSessionExpired(true);
-        return;
-      }
-
-      const parseRes = async (res: Response) => {
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          return res.json();
-        }
-        const text = await res.text();
-        
-        // If we get HTML but it's a 401/403, it's definitely a session issue
-        if (res.status === 401 || res.status === 403) {
-          setCurrentUser(null);
-          setAuthToken(null);
-          setSessionExpired(true);
-          throw new Error("Sessão expirada. Por favor, faça login novamente.");
-        }
-
-        console.error(`Resposta não é JSON: ${res.status} ${res.statusText}`, text);
-        throw new Error(`Erro no servidor (${res.status}): ${text.slice(0, 100)}${text.length > 100 ? '...' : ''}`);
-      };
-
-      const [statsData, clientsData, declsData, profsData] = await Promise.all([
-        parseRes(statsRes),
-        parseRes(clientsRes),
-        parseRes(declsRes),
-        parseRes(profsRes)
-      ]);
-
-      setStats(statsData);
-      setClients(clientsData);
-      setDeclarations(declsData);
-      setProfessionals(profsData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setStats({ total, inProgress, completed, transmitted, taxToPay });
+  }, [declarations]);
 
   const filteredDeclarations = useMemo(() => {
     return declarations.filter(d => {
@@ -456,49 +382,50 @@ export default function App() {
       const matchesCpf = !clientCpfFilter || c.cpf.includes(clientCpfFilter);
       const matchesCategory = !clientCategoryFilter || (c.company && c.company.toLowerCase().includes(clientCategoryFilter.toLowerCase()));
       const matchesNeedsDeclaration = clientNeedsDeclarationFilter === 'all' || 
-                                     (clientNeedsDeclarationFilter === 'yes' && c.needs_declaration === 1) ||
-                                     (clientNeedsDeclarationFilter === 'no' && c.needs_declaration === 0);
+                                     (clientNeedsDeclarationFilter === 'yes' && c.needs_declaration === true) ||
+                                     (clientNeedsDeclarationFilter === 'no' && c.needs_declaration === false);
       
       return matchesSearch && matchesCode && matchesCpf && matchesCategory && matchesNeedsDeclaration;
     });
   }, [clients, clientSearchQuery, clientCodeFilter, clientCpfFilter, clientCategoryFilter, clientNeedsDeclarationFilter]);
 
-  const handleStatusUpdate = async (id: number, newStatus: DeclarationStatus) => {
-    const updates: any = { status: newStatus };
-    if (newStatus === 'Concluído') updates.completion_date = new Date().toISOString().split('T')[0];
-    if (newStatus === 'Transmitido') updates.transmission_date = new Date().toISOString().split('T')[0];
-
-    await authFetch(`/api/declarations/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
+  const professionalStats = useMemo(() => {
+    return professionals.map(prof => {
+      const profDeclarations = declarations.filter(d => d.professional_id === prof.id);
+      return {
+        name: prof.name,
+        total: profDeclarations.length,
+        completed: profDeclarations.filter(d => d.status === 'Concluído' || d.status === 'Transmitido').length,
+        remaining: profDeclarations.filter(d => d.status !== 'Concluído' && d.status !== 'Transmitido').length
+      };
     });
-    
-    if (selectedDeclaration && selectedDeclaration.id === id) {
-      setSelectedDeclaration({ ...selectedDeclaration, ...updates });
-    }
-    fetchData();
+  }, [professionals, declarations]);
+
+  const handleStatusUpdate = async (id: string, newStatus: DeclarationStatus) => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'Concluído') updates.completion_date = new Date().toISOString();
+    if (newStatus === 'Transmitido') updates.transmission_date = new Date().toISOString();
+
+    await updateDoc(doc(db, 'declarations', id), updates);
   };
 
-  const handleDeleteProfessional = async (id: number) => {
+  const handleDeleteProfessional = async (id: string) => {
     setConfirmConfig({
       title: 'Excluir Profissional',
       message: 'Tem certeza que deseja excluir este profissional? As declarações atribuídas a ele ficarão sem responsável.',
       type: 'danger',
       onConfirm: async () => {
         try {
-          const res = await authFetch(`/api/professionals/${id}`, {
-            method: 'DELETE'
-          });
-          if (res.ok) {
-            fetchData();
-          } else {
-            const err = await res.json();
-            alert(`Erro ao excluir: ${err.error || 'Erro desconhecido'}`);
+          await deleteDoc(doc(db, 'professionals', id));
+          // Note: In Firestore we don't have automatic foreign key updates like in SQL
+          // We'd need to manually unassign declarations if needed, but for simplicity:
+          const declsToUpdate = declarations.filter(d => d.professional_id === id);
+          for (const d of declsToUpdate) {
+            await updateDoc(doc(db, 'declarations', d.id), { professional_id: null });
           }
         } catch (error) {
           console.error('Error deleting professional:', error);
-          alert('Erro de conexão ao excluir profissional.');
+          alert('Erro ao excluir profissional.');
         }
         setShowConfirm(false);
       }
@@ -506,25 +433,33 @@ export default function App() {
     setShowConfirm(true);
   };
 
-  const handleDeleteDeclaration = async (id: number) => {
+  const handleDeleteDeclaration = async (id: string) => {
     setConfirmConfig({
       title: 'Excluir Declaração',
       message: 'Tem certeza que deseja excluir esta declaração? Todos os anexos e registros de chamadas vinculados também serão excluídos.',
       type: 'danger',
       onConfirm: async () => {
         try {
-          const res = await authFetch(`/api/declarations/${id}`, {
-            method: 'DELETE'
-          });
-          if (res.ok) {
-            fetchData();
-          } else {
-            const err = await res.json();
-            alert(`Erro ao excluir: ${err.error || 'Erro desconhecido'}`);
+          // 1. Delete calls subcollection
+          const callsSnapshot = await getDocs(collection(db, 'declarations', id, 'calls'));
+          for (const callDoc of callsSnapshot.docs) {
+            await deleteDoc(callDoc.ref);
           }
+
+          // 2. Delete attachments subcollection and files in Storage
+          const attachmentsSnapshot = await getDocs(collection(db, 'declarations', id, 'attachments'));
+          for (const attDoc of attachmentsSnapshot.docs) {
+            const attData = attDoc.data() as Attachment;
+            const storageRef = ref(storage, `declarations/${id}/${attData.filename}`);
+            await deleteObject(storageRef).catch(err => console.error('Error deleting from storage:', err));
+            await deleteDoc(attDoc.ref);
+          }
+
+          // 3. Delete the declaration itself
+          await deleteDoc(doc(db, 'declarations', id));
         } catch (error) {
           console.error('Error deleting declaration:', error);
-          alert('Erro de conexão ao excluir declaração.');
+          alert('Erro ao excluir declaração.');
         }
         setShowConfirm(false);
       }
@@ -532,40 +467,21 @@ export default function App() {
     setShowConfirm(true);
   };
 
-  const handleDeleteClient = async (id: number) => {
-    if (!id || isNaN(id)) {
-      console.error('Invalid client ID for deletion:', id);
-      return;
-    }
-
-    console.log('Attempting to delete client:', id);
+  const handleDeleteClient = async (id: string) => {
     setConfirmConfig({
       title: 'Excluir Cliente',
       message: 'Tem certeza que deseja excluir este cliente? Todas as declarações vinculadas também serão excluídas.',
       type: 'danger',
       onConfirm: async () => {
         try {
-          const res = await authFetch(`/api/clients/${id}`, {
-            method: 'DELETE'
-          });
-          
-          if (res.ok) {
-            console.log('Client deleted successfully:', id);
-            fetchData();
-          } else {
-            let errorMsg = 'Erro desconhecido';
-            try {
-              const err = await res.json();
-              errorMsg = err.error || errorMsg;
-              console.error('Server error deleting client:', err);
-            } catch (e) {
-              console.error('Could not parse error response:', e);
-            }
-            alert(`Erro ao excluir: ${errorMsg}`);
+          await deleteDoc(doc(db, 'clients', id));
+          const declsToDelete = declarations.filter(d => d.client_id === id);
+          for (const d of declsToDelete) {
+            await deleteDoc(doc(db, 'declarations', d.id));
           }
         } catch (error) {
-          console.error('Network error deleting client:', error);
-          alert('Erro de conexão ao excluir cliente. Verifique se o servidor está ativo.');
+          console.error('Error deleting client:', error);
+          alert('Erro ao excluir cliente.');
         }
         setShowConfirm(false);
       }
@@ -573,24 +489,17 @@ export default function App() {
     setShowConfirm(true);
   };
 
-  const handleUpdateClient = async (id: number, updates: Partial<Client>) => {
+  const handleUpdateClient = async (id: string, updates: Partial<Client>) => {
     try {
-      const res = await authFetch(`/api/clients/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      if (res.ok) {
-        fetchData();
-        setEditingClient(null);
-      }
+      await updateDoc(doc(db, 'clients', id), updates);
+      setEditingClient(null);
     } catch (error) {
       console.error('Error updating client:', error);
     }
   };
 
   const handleToggleNeedsDeclaration = async (client: Client) => {
-    const newStatus = client.needs_declaration === 1 ? 0 : 1;
+    const newStatus = !client.needs_declaration;
     await handleUpdateClient(client.id, { needs_declaration: newStatus });
   };
 
@@ -611,18 +520,23 @@ export default function App() {
     XLSX.writeFile(workbook, `Relatorio_Produtividade_${date}.xlsx`);
   };
 
-  const handleDeleteAttachment = async (id: number) => {
+  const handleDeleteAttachment = async (id: string) => {
+    if (!selectedDeclaration) return;
+    
     setConfirmConfig({
       title: 'Excluir Anexo',
       message: 'Tem certeza que deseja excluir este anexo permanentemente?',
       type: 'danger',
       onConfirm: async () => {
         try {
-          const res = await authFetch(`/api/attachments/${id}`, {
-            method: 'DELETE'
-          });
-          if (res.ok && selectedDeclaration) {
-            fetchAttachments(selectedDeclaration.id);
+          const att = selectedDeclarationAttachments.find(a => a.id === id);
+          if (att) {
+            // Delete from Storage
+            const storageRef = ref(storage, `declarations/${selectedDeclaration.id}/${att.filename}`);
+            await deleteObject(storageRef).catch(err => console.error('Error deleting from storage:', err));
+            
+            // Delete from Firestore
+            await deleteDoc(doc(db, 'declarations', selectedDeclaration.id, 'attachments', id));
           }
         } catch (error) {
           console.error('Error deleting attachment:', error);
@@ -633,19 +547,16 @@ export default function App() {
     setShowConfirm(true);
   };
 
-  const handleDeleteCall = async (id: number) => {
+  const handleDeleteCall = async (id: string) => {
+    if (!selectedDeclaration) return;
+
     setConfirmConfig({
       title: 'Excluir Registro',
       message: 'Tem certeza que deseja excluir este registro de ligação?',
       type: 'danger',
       onConfirm: async () => {
         try {
-          const res = await authFetch(`/api/calls/${id}`, {
-            method: 'DELETE'
-          });
-          if (res.ok && selectedDeclaration) {
-            fetchCalls(selectedDeclaration.id);
-          }
+          await deleteDoc(doc(db, 'declarations', selectedDeclaration.id, 'calls', id));
         } catch (error) {
           console.error('Error deleting call:', error);
         }
@@ -656,66 +567,73 @@ export default function App() {
   };
 
   const handleAddCall = async () => {
-    if (!selectedDeclaration || !newCallSummary.trim()) return;
+    if (!selectedDeclaration || !newCallSummary.trim() || !currentUser) return;
     
     try {
-      const res = await authFetch('/api/calls', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          declaration_id: selectedDeclaration.id,
-          professional_id: currentUser.id, // Use current user ID
-          call_date: new Date().toLocaleString('pt-BR'),
-          summary: newCallSummary,
-          status_after_call: selectedDeclaration.status
-        })
+      await addDoc(collection(db, 'declarations', selectedDeclaration.id, 'calls'), {
+        declaration_id: selectedDeclaration.id,
+        professional_id: currentUser.id,
+        professional_name: currentUser.name,
+        call_date: new Date().toLocaleString('pt-BR'),
+        summary: newCallSummary,
+        status_after_call: selectedDeclaration.status
       });
       
-      if (res.ok) {
-        fetchCalls(selectedDeclaration.id);
-        setShowNewCall(false);
-        setNewCallSummary('');
-      }
+      setShowNewCall(false);
+      setNewCallSummary('');
     } catch (error) {
       console.error('Error adding call:', error);
     }
   };
 
-  const handleReassign = async (declarationId: number, professionalId: number) => {
-    await authFetch(`/api/declarations/${declarationId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ professional_id: professionalId })
-    });
-    
+  const handleReassign = async (declarationId: string, professionalId: string) => {
     const prof = professionals.find(p => p.id === professionalId);
-    if (selectedDeclaration && selectedDeclaration.id === declarationId) {
-      setSelectedDeclaration({ 
-        ...selectedDeclaration, 
+    if (!prof) return;
+
+    try {
+      await updateDoc(doc(db, 'declarations', declarationId), {
         professional_id: professionalId,
-        professional_name: prof?.name 
+        professional_name: prof.name
       });
+      
+      if (selectedDeclaration && selectedDeclaration.id === declarationId) {
+        setSelectedDeclaration({ 
+          ...selectedDeclaration, 
+          professional_id: professionalId,
+          professional_name: prof.name 
+        });
+      }
+      setIsReassigning(false);
+    } catch (error) {
+      console.error('Error reassigning:', error);
     }
-    setIsReassigning(false);
-    fetchData();
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedDeclaration || !e.target.files?.[0]) return;
     
-    const formData = new FormData();
-    formData.append('file', e.target.files[0]);
+    const file = e.target.files[0];
+    const filename = `${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, `declarations/${selectedDeclaration.id}/${filename}`);
 
     try {
-      const res = await authFetch(`/api/declarations/${selectedDeclaration.id}/attachments`, {
-        method: 'POST',
-        body: formData
+      // 1. Upload to Storage
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+
+      // 2. Save metadata to Firestore
+      await addDoc(collection(db, 'declarations', selectedDeclaration.id, 'attachments'), {
+        declaration_id: selectedDeclaration.id,
+        filename: filename,
+        original_name: file.name,
+        mime_type: file.type,
+        file_size: file.size,
+        upload_date: new Date().toISOString(),
+        url: url
       });
-      if (res.ok) {
-        fetchAttachments(selectedDeclaration.id);
-      }
     } catch (error) {
       console.error('Error uploading file:', error);
+      alert('Erro ao fazer upload do arquivo.');
     }
   };
 
@@ -771,32 +689,20 @@ export default function App() {
       }).filter(item => item.name || item.code);
 
       try {
-        const res = await authFetch('/api/import/clients', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ data: mappedData })
+        const batch = writeBatch(db);
+        mappedData.forEach(clientData => {
+          const newDocRef = doc(collection(db, 'clients'));
+          batch.set(newDocRef, {
+            ...clientData,
+            needs_declaration: true // Default for imported clients
+          });
         });
         
-        const contentType = res.headers.get("content-type");
-        if (res.ok) {
-          alert(`${mappedData.length} clientes importados com sucesso!`);
-          fetchData();
-        } else {
-          let errorMsg = 'Erro desconhecido';
-          if (contentType && contentType.includes("application/json")) {
-            const err = await res.json();
-            errorMsg = err.error || errorMsg;
-          } else {
-            const text = await res.text();
-            errorMsg = `Erro ${res.status}: ${text.slice(0, 100)}`;
-          }
-          alert(`Erro na importação: ${errorMsg}`);
-        }
+        await batch.commit();
+        alert(`${mappedData.length} clientes importados com sucesso!`);
       } catch (error: any) {
         console.error('Error importing clients:', error);
-        alert(`Erro de conexão ao importar clientes: ${error.message}`);
+        alert(`Erro ao importar clientes: ${error.message}`);
       }
     };
 
@@ -809,13 +715,21 @@ export default function App() {
 
   const handleCSVImport = handleFileImport; // Keep for compatibility if needed elsewhere
 
-  if (!currentUser || !authToken) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 font-medium">Carregando sistema seguro...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
     return <Login 
-      sessionExpired={sessionExpired}
-      onLogin={(user, token) => {
+      onLogin={(user) => {
         setCurrentUser(user);
-        setAuthToken(token);
-        setSessionExpired(false);
       }} 
     />;
   }
@@ -938,12 +852,7 @@ export default function App() {
               SENHA
             </button>
             <button 
-              onClick={() => {
-                localStorage.removeItem('currentUser');
-                localStorage.removeItem('authToken');
-                setCurrentUser(null);
-                setAuthToken(null);
-              }}
+              onClick={handleLogout}
               className="flex items-center justify-center gap-1.5 py-2 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold hover:bg-rose-100 transition-all"
               title="Sair"
             >
@@ -1688,7 +1597,7 @@ export default function App() {
                         <select 
                           autoFocus
                           onBlur={() => setIsReassigning(false)}
-                          onChange={(e) => handleReassign(selectedDeclaration.id, parseInt(e.target.value))}
+                          onChange={(e) => handleReassign(selectedDeclaration.id, e.target.value)}
                           className="w-full bg-transparent text-sm font-semibold text-slate-700 outline-none"
                         >
                           <option value="">Selecione...</option>
@@ -1736,7 +1645,7 @@ export default function App() {
                       {selectedDeclarationAttachments.map(att => (
                         <div key={att.id} className="group relative">
                           <a 
-                            href={`/api/attachments/${att.id}/download?token=${currentUser?.id}`}
+                            href={att.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-3 border border-slate-200 rounded-xl flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors"
@@ -1933,16 +1842,16 @@ export default function App() {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
                 const data = Object.fromEntries(formData.entries());
-                await authFetch('/api/clients', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
+                try {
+                  await addDoc(collection(db, 'clients'), {
                     ...data,
-                    needs_declaration: data.needs_declaration === 'on' ? 1 : 0
-                  })
-                });
-                setShowNewClient(false);
-                fetchData();
+                    needs_declaration: data.needs_declaration === 'on'
+                  });
+                  setShowNewClient(false);
+                } catch (error) {
+                  console.error('Error adding client:', error);
+                  alert('Erro ao adicionar cliente.');
+                }
               }} className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-1">
@@ -2011,17 +1920,26 @@ export default function App() {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
                 const data = Object.fromEntries(formData.entries());
-                await authFetch('/api/declarations', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
+                
+                const client = clients.find(c => c.id === data.client_id);
+                if (!client) return;
+
+                try {
+                  await addDoc(collection(db, 'declarations'), {
                     ...data,
+                    client_name: client.name,
+                    client_cpf: client.cpf,
+                    client_code: client.code,
+                    client_type: client.type,
+                    client_company: client.company,
                     has_tax_to_pay: data.has_tax_to_pay === 'on',
                     tax_amount: parseFloat(data.tax_amount as string || '0')
-                  })
-                });
-                setShowNewDeclaration(false);
-                fetchData();
+                  });
+                  setShowNewDeclaration(false);
+                } catch (error) {
+                  console.error('Error adding declaration:', error);
+                  alert('Erro ao criar declaração.');
+                }
               }} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Cliente</label>
@@ -2092,23 +2010,26 @@ export default function App() {
                 }
 
                 try {
-                  const res = await authFetch('/api/professionals', {
-                    method: 'POST',
-                    headers: { 
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
+                  // Note: Creating a professional involves creating an Auth user.
+                  // This usually requires a backend or admin SDK.
+                  // For this applet, we'll assume the admin creates the user manually in Firebase Console
+                  // and we just add the doc to Firestore.
+                  // Alternatively, we could use a Cloud Function.
+                  // Since we are in a simplified environment, let's just add the doc.
+                  // In a real app, you'd use createUserWithEmailAndPassword if the admin is logged in,
+                  // but that would log out the admin.
+                  
+                  await addDoc(collection(db, 'professionals'), {
+                    name: data.name,
+                    email: data.email,
+                    role: data.role
                   });
-                  if (!res.ok) {
-                    const err = await res.json();
-                    alert(`Erro ao cadastrar: ${err.error || 'Erro desconhecido'}`);
-                    return;
-                  }
+                  
                   setShowNewProfessional(false);
-                  fetchData();
+                  alert('Profissional cadastrado no banco de dados. Certifique-se de criar o acesso no Firebase Auth.');
                 } catch (error) {
                   console.error('Error creating professional:', error);
-                  alert('Erro de conexão ao cadastrar profissional.');
+                  alert('Erro ao cadastrar profissional.');
                 }
               }} className="space-y-4">
                 <div>
@@ -2165,26 +2086,17 @@ export default function App() {
                 }
 
                 try {
-                  const res = await authFetch('/api/auth/change-password', {
-                    method: 'POST',
-                    headers: { 
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                      currentPassword: data.currentPassword,
-                      newPassword: data.newPassword
-                    })
-                  });
-                  
-                  if (res.ok) {
+                  const user = auth.currentUser;
+                  if (user && user.email) {
+                    const credential = EmailAuthProvider.credential(user.email, data.currentPassword as string);
+                    await reauthenticateWithCredential(user, credential);
+                    await updatePassword(user, data.newPassword as string);
                     alert('Senha alterada com sucesso!');
                     setShowChangePassword(false);
-                  } else {
-                    const err = await res.json();
-                    alert(`Erro: ${err.error || 'Erro desconhecido'}`);
                   }
-                } catch (error) {
-                  alert('Erro de conexão ao alterar senha.');
+                } catch (error: any) {
+                  console.error('Error changing password:', error);
+                  alert(`Erro: ${error.message || 'Erro desconhecido'}`);
                 }
               }} className="space-y-4">
                 <div>
