@@ -1,0 +1,21 @@
+{
+  "name": "Gestão IRPF",
+  "short_name": "IRPF",
+  "description": "Sistema de Gestão de Declarações IRPF",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/irpf/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/irpf/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
