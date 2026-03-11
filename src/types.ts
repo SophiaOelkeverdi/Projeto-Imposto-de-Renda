@@ -22,7 +22,7 @@ export interface Client {
   needs_declaration: boolean;
 }
 
-export type DeclarationStatus = 'Recebido' | 'Em processamento' | 'Aguardando cliente' | 'Aguardando pagamento' | 'Concluído' | 'Transmitido';
+export type DeclarationStatus = 'Aguardando Documentos' | 'Recebido' | 'Em processamento' | 'Aguardando cliente' | 'Aguardando pagamento' | 'Concluído' | 'Transmitido';
 
 export interface Declaration {
   id: string;

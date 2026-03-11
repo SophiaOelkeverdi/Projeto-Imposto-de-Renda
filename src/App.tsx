@@ -49,7 +49,7 @@ import {
 
 // Types
 type ClientType = 'PF' | 'SOCIO';
-type DeclarationStatus = 'Recebido' | 'Em processamento' | 'Aguardando cliente' | 'Aguardando pagamento' | 'Concluído' | 'Transmitido';
+type DeclarationStatus = 'Aguardando Documentos' | 'Recebido' | 'Em processamento' | 'Aguardando cliente' | 'Aguardando pagamento' | 'Concluído' | 'Transmitido';
 
 interface Client {
   id: number;
@@ -126,6 +126,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: any, label:
 
 const StatusBadge = ({ status }: { status: DeclarationStatus }) => {
   const colors: Record<DeclarationStatus, string> = {
+    'Aguardando Documentos': 'bg-slate-100 text-slate-600 border-slate-200',
     'Recebido': 'bg-blue-100 text-blue-700 border-blue-200',
     'Em processamento': 'bg-amber-100 text-amber-700 border-amber-200',
     'Aguardando cliente': 'bg-purple-100 text-purple-700 border-purple-200',
@@ -295,6 +296,7 @@ export default function App() {
   const [clientCategoryFilter, setClientCategoryFilter] = useState('');
   const [clientNeedsDeclarationFilter, setClientNeedsDeclarationFilter] = useState<string>('all');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editingDeclaration, setEditingDeclaration] = useState<Declaration | null>(null);
   const [currentUser, setCurrentUser] = useState<Professional | null>(() => {
     const saved = localStorage.getItem('currentUser');
     return saved ? JSON.parse(saved) : null;
@@ -560,6 +562,21 @@ export default function App() {
     setShowConfirm(true);
   };
 
+  const handleUpdateDeclaration = async (id: number, updates: Partial<Declaration>) => {
+    try {
+      const res = await authFetch(`/api/declarations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        fetchData();
+        setEditingDeclaration(null);
+      }
+    } catch (error) {
+      console.error('Error updating declaration:', error);
+    }
+  };
   const handleUpdateClient = async (id: number, updates: Partial<Client>) => {
     try {
       const res = await authFetch(`/api/clients/${id}`, {
@@ -1020,7 +1037,7 @@ export default function App() {
                         </div>
                         <div>
                           <p className="font-semibold text-slate-800">{d.client_name}</p>
-                          <p className="text-xs text-slate-400">Recebido em: {d.received_date}</p>
+                          <p className="text-xs text-slate-400">Recebido em: {d.received_date || 'N/A'}</p>
                         </div>
                       </div>
                       <StatusBadge status={d.status} />
@@ -1076,6 +1093,7 @@ export default function App() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="all">Todos os Status</option>
+                <option value="Aguardando Documentos">Aguardando Documentos</option>
                 <option value="Recebido">Recebido</option>
                 <option value="Em processamento">Em processamento</option>
                 <option value="Aguardando cliente">Aguardando cliente</option>
@@ -1153,6 +1171,7 @@ export default function App() {
                             'bg-slate-100 text-slate-600'
                           }`}
                         >
+                          <option value="Aguardando Documentos">Aguardando Documentos</option>
                           <option value="Recebido">Recebido</option>
                           <option value="Em processamento">Em processamento</option>
                           <option value="Aguardando cliente">Aguardando cliente</option>
@@ -1165,7 +1184,7 @@ export default function App() {
                         <p className="text-sm text-slate-600">{d.professional_name || 'Não atribuído'}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-slate-600">{d.received_date}</p>
+                        <p className="text-sm text-slate-600">{d.received_date || 'N/A'}</p>
                       </td>
                       <td className="px-6 py-4">
                         {d.has_tax_to_pay ? (
@@ -1185,6 +1204,13 @@ export default function App() {
                             title="Detalhes"
                           >
                             <ChevronRight size={18} />
+                          </button>
+                          <button 
+                            onClick={() => setEditingDeclaration(d)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Editar Declaração"
+                          >
+                            <Edit size={18} />
                           </button>
                           <button 
                             onClick={() => handleDeleteDeclaration(d.id)}
@@ -1648,6 +1674,7 @@ export default function App() {
                         onChange={(e) => handleStatusUpdate(selectedDeclaration.id, e.target.value as DeclarationStatus)}
                         className="w-full bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer"
                       >
+                        <option value="Aguardando Documentos">Aguardando Documentos</option>
                         <option value="Recebido">Recebido</option>
                         <option value="Em processamento">Em processamento</option>
                         <option value="Aguardando cliente">Aguardando cliente</option>
@@ -1829,6 +1856,71 @@ export default function App() {
 
       {/* Edit Client Modal */}
       <AnimatePresence>
+        {editingDeclaration && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditingDeclaration(null)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
+              <h3 className="text-xl font-bold text-slate-800 mb-6">Editar Declaração</h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const data = Object.fromEntries(formData.entries());
+                await handleUpdateDeclaration(editingDeclaration.id, {
+                  professional_id: data.professional_id === "" ? null : data.professional_id,
+                  status: data.status,
+                  received_date: data.received_date || null,
+                  has_tax_to_pay: data.has_tax_to_pay === 'on' ? 1 : 0,
+                  tax_amount: parseFloat(data.tax_amount as string) || 0
+                } as any);
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Cliente</label>
+                  <input disabled value={editingDeclaration.client_name} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Responsável</label>
+                  <select name="professional_id" defaultValue={editingDeclaration.professional_id || ""} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                    <option value="">Não atribuído</option>
+                    {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Data de Recebimento</label>
+                    <input type="date" name="received_date" defaultValue={editingDeclaration.received_date} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status</label>
+                    <select name="status" defaultValue={editingDeclaration.status} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                      <option value="Aguardando Documentos">Aguardando Documentos</option>
+                      <option value="Recebido">Recebido</option>
+                      <option value="Em processamento">Em processamento</option>
+                      <option value="Aguardando cliente">Aguardando cliente</option>
+                      <option value="Aguardando pagamento">Aguardando pagamento</option>
+                      <option value="Concluído">Concluído</option>
+                      <option value="Transmitido">Transmitido</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <input type="checkbox" name="has_tax_to_pay" id="edit_has_tax" defaultChecked={editingDeclaration.has_tax_to_pay} className="w-4 h-4 text-indigo-600 rounded" />
+                  <label htmlFor="edit_has_tax" className="text-sm font-medium text-slate-700">Imposto a Pagar?</label>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Valor do Imposto (R$)</label>
+                  <input type="number" step="0.01" name="tax_amount" defaultValue={editingDeclaration.tax_amount} placeholder="0.00" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button type="button" onClick={() => setEditingDeclaration(null)} className="flex-1 py-2 text-slate-500 font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow-lg shadow-indigo-100">Salvar Alterações</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {editingClient && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditingClient(null)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
@@ -1990,6 +2082,7 @@ export default function App() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     ...data,
+                    received_date: data.received_date || null,
                     has_tax_to_pay: data.has_tax_to_pay === 'on',
                     tax_amount: parseFloat(data.tax_amount as string || '0')
                   })
@@ -2018,6 +2111,7 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status Inicial</label>
                   <select name="status" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20">
+                    <option value="Aguardando Documentos">Aguardando Documentos</option>
                     <option value="Recebido">Recebido</option>
                     <option value="Em processamento">Em processamento</option>
                     <option value="Aguardando cliente">Aguardando cliente</option>
@@ -2028,7 +2122,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Data de Recebimento</label>
-                  <input type="date" name="received_date" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none" />
+                  <input type="date" name="received_date" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none" />
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" name="has_tax_to_pay" id="has_tax" className="w-4 h-4 text-indigo-600 rounded" />

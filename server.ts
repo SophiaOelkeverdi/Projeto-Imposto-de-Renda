@@ -154,16 +154,32 @@ app.get("/api/clients", async (req, res) => {
 
 app.post("/api/clients", async (req, res) => {
   const { code, name, cpf, type, company, phone, email, observations, needs_declaration } = req.body;
+  const needsDecl = needs_declaration !== undefined ? (needs_declaration ? 1 : 0) : 1;
   try {
     const { data, error } = await supabase
       .from('clients')
       .insert([{ 
         code, name, cpf, type, company, phone, email, observations, 
-        needs_declaration: needs_declaration !== undefined ? (needs_declaration ? 1 : 0) : 1 
+        needs_declaration: needsDecl 
       }])
       .select();
     if (error) throw error;
-    res.json({ id: data[0].id });
+    
+    const clientId = data[0].id;
+    
+    if (needsDecl === 1) {
+      const today = new Date().toISOString().split('T')[0];
+      await supabase.from('declarations').insert([{
+        client_id: clientId,
+        professional_id: null,
+        received_date: today,
+        status: 'Aguardando Documentos',
+        has_tax_to_pay: 0,
+        tax_amount: 0
+      }]);
+    }
+
+    res.json({ id: clientId });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -178,6 +194,22 @@ app.patch("/api/clients/:id", async (req, res) => {
   try {
     const { error } = await supabase.from('clients').update(updates).eq('id', id);
     if (error) throw error;
+
+    if (updates.needs_declaration === 1) {
+      const { data: existingDecls } = await supabase.from('declarations').select('id').eq('client_id', id);
+      if (!existingDecls || existingDecls.length === 0) {
+        const today = new Date().toISOString().split('T')[0];
+        await supabase.from('declarations').insert([{
+          client_id: id,
+          professional_id: null,
+          received_date: today,
+          status: 'Aguardando Documentos',
+          has_tax_to_pay: 0,
+          tax_amount: 0
+        }]);
+      }
+    }
+
     res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -249,7 +281,7 @@ app.post("/api/declarations", async (req, res) => {
     const { data, error } = await supabase
       .from('declarations')
       .insert([{ 
-        client_id, professional_id: profId, received_date, 
+        client_id, professional_id: profId, received_date: received_date || null, 
         status: status || 'Recebido', 
         has_tax_to_pay: has_tax_to_pay ? 1 : 0, 
         tax_amount: tax_amount || 0 
