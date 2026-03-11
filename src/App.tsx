@@ -1012,7 +1012,7 @@ export default function App() {
               <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Declarações Recentes</h3>
                 <div className="space-y-4">
-                  {declarations.slice(0, 5).map((d) => (
+                  {Array.isArray(declarations) && declarations.slice(0, 5).map((d) => (
                     <div key={d.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-indigo-100 transition-colors">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
