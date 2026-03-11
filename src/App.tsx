@@ -343,8 +343,9 @@ export default function App() {
   }, [selectedDeclaration]);
 
   const professionalStats = useMemo(() => {
+    if (!Array.isArray(professionals)) return [];
     return professionals.map(prof => {
-      const profDeclarations = declarations.filter(d => d.professional_id === prof.id);
+      const profDeclarations = Array.isArray(declarations) ? declarations.filter(d => d.professional_id === prof.id) : [];
       const total = profDeclarations.length;
       const completed = profDeclarations.filter(d => d.status === 'Concluído' || d.status === 'Transmitido').length;
       const remaining = total - completed;
@@ -422,9 +423,10 @@ export default function App() {
   };
 
   const filteredDeclarations = useMemo(() => {
+    if (!Array.isArray(declarations)) return [];
     return declarations.filter(d => {
-      const matchesSearch = d.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           d.client_cpf.includes(searchQuery) ||
+      const matchesSearch = d.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           d.client_cpf?.includes(searchQuery) ||
                            (d.client_code && d.client_code.toLowerCase().includes(searchQuery.toLowerCase())) ||
                            (d.client_company && d.client_company.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
@@ -434,10 +436,11 @@ export default function App() {
   }, [declarations, searchQuery, statusFilter, typeFilter]);
 
   const filteredClients = useMemo(() => {
+    if (!Array.isArray(clients)) return [];
     return clients.filter(c => {
-      const matchesSearch = !clientSearchQuery || c.name.toLowerCase().includes(clientSearchQuery.toLowerCase());
+      const matchesSearch = !clientSearchQuery || c.name?.toLowerCase().includes(clientSearchQuery.toLowerCase());
       const matchesCode = !clientCodeFilter || (c.code && c.code.toLowerCase().includes(clientCodeFilter.toLowerCase()));
-      const matchesCpf = !clientCpfFilter || c.cpf.includes(clientCpfFilter);
+      const matchesCpf = !clientCpfFilter || c.cpf?.includes(clientCpfFilter);
       const matchesCategory = !clientCategoryFilter || (c.company && c.company.toLowerCase().includes(clientCategoryFilter.toLowerCase()));
       const matchesNeedsDeclaration = clientNeedsDeclarationFilter === 'all' || 
                                      (clientNeedsDeclarationFilter === 'yes' && c.needs_declaration === 1) ||
