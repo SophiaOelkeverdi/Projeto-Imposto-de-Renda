@@ -480,6 +480,12 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
+    
+    // Prevent fallback to index.html for missing assets
+    app.use("/assets/*", (req, res) => {
+      res.status(404).send("Not Found");
+    });
+    
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
