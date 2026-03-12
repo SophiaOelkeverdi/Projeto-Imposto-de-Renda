@@ -616,9 +616,13 @@ export default function App() {
       if (res.ok) {
         fetchData();
         setEditingClient(null);
+      } else {
+        const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
+        alert(`Erro ao atualizar cliente: ${errMsg}`);
       }
     } catch (error) {
       console.error('Error updating client:', error);
+      alert('Erro de conexão ao atualizar cliente.');
     }
   };
 

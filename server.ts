@@ -136,8 +136,9 @@ app.post("/api/professionals", adminOnly, async (req, res) => {
 
 app.delete("/api/professionals/:id", adminOnly, async (req, res) => {
   try {
-    await supabase.from('declarations').update({ professional_id: null }).eq('professional_id', req.params.id);
-    const { error } = await supabase.from('professionals').delete().eq('id', req.params.id);
+    const profId = parseInt(req.params.id);
+    await supabase.from('declarations').update({ professional_id: null }).eq('professional_id', profId);
+    const { error } = await supabase.from('professionals').delete().eq('id', profId);
     if (error) throw error;
     res.json({ success: true });
   } catch (error: any) {
@@ -169,7 +170,7 @@ app.post("/api/clients", async (req, res) => {
     
     if (needsDecl === 1) {
       const today = new Date().toISOString().split('T')[0];
-      await supabase.from('declarations').insert([{
+      const { error: declError } = await supabase.from('declarations').insert([{
         client_id: clientId,
         professional_id: null,
         received_date: today,
@@ -177,6 +178,10 @@ app.post("/api/clients", async (req, res) => {
         has_tax_to_pay: 0,
         tax_amount: 0
       }]);
+      if (declError) {
+        console.error("Error creating declaration:", declError);
+        throw declError;
+      }
     }
 
     res.json({ id: clientId });
@@ -192,21 +197,25 @@ app.patch("/api/clients/:id", async (req, res) => {
     updates.needs_declaration = updates.needs_declaration ? 1 : 0;
   }
   try {
-    const { error } = await supabase.from('clients').update(updates).eq('id', id);
+    const { error } = await supabase.from('clients').update(updates).eq('id', parseInt(id));
     if (error) throw error;
 
     if (updates.needs_declaration === 1) {
-      const { data: existingDecls } = await supabase.from('declarations').select('id').eq('client_id', id);
+      const { data: existingDecls } = await supabase.from('declarations').select('id').eq('client_id', parseInt(id));
       if (!existingDecls || existingDecls.length === 0) {
         const today = new Date().toISOString().split('T')[0];
-        await supabase.from('declarations').insert([{
-          client_id: id,
+        const { error: declError } = await supabase.from('declarations').insert([{
+          client_id: parseInt(id),
           professional_id: null,
           received_date: today,
           status: 'Aguardando Documentos',
           has_tax_to_pay: 0,
           tax_amount: 0
         }]);
+        if (declError) {
+          console.error("Error creating declaration:", declError);
+          throw declError;
+        }
       }
     }
 
@@ -276,12 +285,12 @@ app.get("/api/declarations", async (req, res) => {
 
 app.post("/api/declarations", async (req, res) => {
   const { client_id, professional_id, received_date, status, has_tax_to_pay, tax_amount } = req.body;
-  const profId = professional_id === "" ? null : professional_id;
+  const profId = professional_id === "" || professional_id == null ? null : parseInt(professional_id);
   try {
     const { data, error } = await supabase
       .from('declarations')
       .insert([{ 
-        client_id, professional_id: profId, received_date: received_date || null, 
+        client_id: parseInt(client_id), professional_id: profId, received_date: received_date || null, 
         status: status || 'Recebido', 
         has_tax_to_pay: has_tax_to_pay ? 1 : 0, 
         tax_amount: tax_amount || 0 
@@ -297,7 +306,11 @@ app.post("/api/declarations", async (req, res) => {
 app.patch("/api/declarations/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const { error } = await supabase.from('declarations').update(req.body).eq('id', id);
+    const updates = { ...req.body };
+    if (updates.professional_id !== undefined && updates.professional_id !== null) {
+      updates.professional_id = parseInt(updates.professional_id);
+    }
+    const { error } = await supabase.from('declarations').update(updates).eq('id', parseInt(id));
     if (error) throw error;
     res.json({ success: true });
   } catch (error: any) {
@@ -333,7 +346,7 @@ app.get("/api/declarations/:id/calls", async (req, res) => {
   const { data, error } = await supabase
     .from('calls')
     .select(`*, professionals(name)`)
-    .eq('declaration_id', req.params.id)
+    .eq('declaration_id', parseInt(req.params.id))
     .order('call_date', { ascending: false });
     
   if (error) return res.status(500).json({ error: error.message });
@@ -358,7 +371,7 @@ app.post("/api/calls", async (req, res) => {
 
 app.delete("/api/calls/:id", async (req, res) => {
   try {
-    const { error } = await supabase.from('calls').delete().eq('id', req.params.id);
+    const { error } = await supabase.from('calls').delete().eq('id', parseInt(req.params.id));
     if (error) throw error;
     res.json({ success: true });
   } catch (error: any) {
@@ -373,7 +386,7 @@ app.post("/api/declarations/:id/attachments", upload.single("file"), async (req,
     const { data, error } = await supabase
       .from('attachments')
       .insert([{
-        declaration_id: req.params.id,
+        declaration_id: parseInt(req.params.id),
         filename: req.file.filename,
         original_name: req.file.originalname,
         mime_type: req.file.mimetype,
@@ -388,24 +401,24 @@ app.post("/api/declarations/:id/attachments", upload.single("file"), async (req,
 });
 
 app.get("/api/declarations/:id/attachments", async (req, res) => {
-  const { data, error } = await supabase.from('attachments').select('*').eq('declaration_id', req.params.id);
+  const { data, error } = await supabase.from('attachments').select('*').eq('declaration_id', parseInt(req.params.id));
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
 app.get("/api/attachments/:id/download", async (req, res) => {
-  const { data, error } = await supabase.from('attachments').select('*').eq('id', req.params.id).single();
+  const { data, error } = await supabase.from('attachments').select('*').eq('id', parseInt(req.params.id)).single();
   if (error || !data) return res.status(404).send("File not found");
   res.download(path.join(uploadDir, data.filename), data.original_name);
 });
 
 app.delete("/api/attachments/:id", async (req, res) => {
   try {
-    const { data: attachment } = await supabase.from('attachments').select('*').eq('id', req.params.id).single();
+    const { data: attachment } = await supabase.from('attachments').select('*').eq('id', parseInt(req.params.id)).single();
     if (attachment) {
       const filePath = path.join(uploadDir, attachment.filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      await supabase.from('attachments').delete().eq('id', req.params.id);
+      await supabase.from('attachments').delete().eq('id', parseInt(req.params.id));
     }
     res.json({ success: true });
   } catch (error: any) {
