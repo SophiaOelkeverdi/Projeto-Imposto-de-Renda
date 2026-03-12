@@ -315,6 +315,19 @@ export default function App() {
     return null;
   };
 
+  const parseErrorResponse = async (res: Response, defaultMsg: string) => {
+    try {
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const err = await res.json();
+        return err.error || defaultMsg;
+      }
+      return `${defaultMsg} (${res.status})`;
+    } catch (e) {
+      return `${defaultMsg} (${res.status})`;
+    }
+  };
+
   const authFetch = (url: string, options: RequestInit = {}) => {
     const headers = {
       ...options.headers,
@@ -366,7 +379,9 @@ export default function App() {
   const fetchAttachments = async (declarationId: number) => {
     try {
       const res = await authFetch(`/api/declarations/${declarationId}/attachments`);
-      setSelectedDeclarationAttachments(await res.json());
+      if (res.ok) {
+        setSelectedDeclarationAttachments(await res.json());
+      }
     } catch (error) {
       console.error('Error fetching attachments:', error);
     }
@@ -375,7 +390,9 @@ export default function App() {
   const fetchCalls = async (declarationId: number) => {
     try {
       const res = await authFetch(`/api/declarations/${declarationId}/calls`);
-      setSelectedDeclarationCalls(await res.json());
+      if (res.ok) {
+        setSelectedDeclarationCalls(await res.json());
+      }
     } catch (error) {
       console.error('Error fetching calls:', error);
     }
@@ -392,7 +409,7 @@ export default function App() {
         authFetch('/api/professionals')
       ]);
       
-      if (statsRes.status === 401 || clientsRes.status === 401) {
+      if (statsRes.status === 401 || clientsRes.status === 401 || declsRes.status === 401 || profsRes.status === 401) {
         setCurrentUser(null);
         setAuthToken(null);
         return;
@@ -403,7 +420,19 @@ export default function App() {
         if (contentType && contentType.includes("application/json")) {
           return res.json();
         }
-        throw new Error(`Resposta não é JSON: ${res.status} ${res.statusText}`);
+        
+        // Handle non-JSON responses gracefully (e.g., Nginx error pages)
+        if (res.status === 403) {
+          throw new Error("Acesso negado (403)");
+        } else if (res.status === 404) {
+          throw new Error("Recurso não encontrado (404)");
+        } else if (res.status >= 500) {
+          throw new Error(`Erro no servidor (${res.status})`);
+        }
+        
+        const text = await res.text();
+        console.error(`Resposta não é JSON: ${res.status} ${res.statusText}`, text);
+        throw new Error(`Erro inesperado: ${res.status} ${res.statusText}`);
       };
 
       const [statsData, clientsData, declsData, profsData] = await Promise.all([
@@ -482,8 +511,8 @@ export default function App() {
           if (res.ok) {
             fetchData();
           } else {
-            const err = await res.json();
-            alert(`Erro ao excluir: ${err.error || 'Erro desconhecido'}`);
+            const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
+            alert(`Erro ao excluir: ${errMsg}`);
           }
         } catch (error) {
           console.error('Error deleting professional:', error);
@@ -508,8 +537,8 @@ export default function App() {
           if (res.ok) {
             fetchData();
           } else {
-            const err = await res.json();
-            alert(`Erro ao excluir: ${err.error || 'Erro desconhecido'}`);
+            const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
+            alert(`Erro ao excluir: ${errMsg}`);
           }
         } catch (error) {
           console.error('Error deleting declaration:', error);
@@ -544,9 +573,9 @@ export default function App() {
           } else {
             let errorMsg = 'Erro desconhecido';
             try {
-              const err = await res.json();
-              errorMsg = err.error || errorMsg;
-              console.error('Server error deleting client:', err);
+              const errMsg = await parseErrorResponse(res, errorMsg);
+              errorMsg = errMsg;
+              console.error('Server error deleting client:', errMsg);
             } catch (e) {
               console.error('Could not parse error response:', e);
             }
@@ -786,8 +815,8 @@ export default function App() {
           alert(`${mappedData.length} clientes importados com sucesso!`);
           fetchData();
         } else {
-          const err = await res.json();
-          alert(`Erro na importação: ${err.error || 'Erro desconhecido'}`);
+          const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
+          alert(`Erro na importação: ${errMsg}`);
         }
       } catch (error) {
         console.error('Error importing clients:', error);
@@ -2053,7 +2082,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" name="needs_declaration" id="new_needs_decl" defaultChecked={true} className="w-4 h-4 text-indigo-600 rounded" />
+                  <input type="checkbox" name="needs_declaration" id="new_needs_decl" defaultChecked={false} className="w-4 h-4 text-indigo-600 rounded" />
                   <label htmlFor="new_needs_decl" className="text-sm font-medium text-slate-700">Necessário fazer declaração?</label>
                 </div>
                 <div className="pt-4 flex gap-3">
@@ -2168,8 +2197,8 @@ export default function App() {
                     body: JSON.stringify(data)
                   });
                   if (!res.ok) {
-                    const err = await res.json();
-                    alert(`Erro ao cadastrar: ${err.error || 'Erro desconhecido'}`);
+                    const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
+                    alert(`Erro ao cadastrar: ${errMsg}`);
                     return;
                   }
                   setShowNewProfessional(false);
@@ -2248,8 +2277,8 @@ export default function App() {
                     alert('Senha alterada com sucesso!');
                     setShowChangePassword(false);
                   } else {
-                    const err = await res.json();
-                    alert(`Erro: ${err.error || 'Erro desconhecido'}`);
+                    const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
+                    alert(`Erro: ${errMsg}`);
                   }
                 } catch (error) {
                   alert('Erro de conexão ao alterar senha.');

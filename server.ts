@@ -53,7 +53,7 @@ const auth = async (req: express.Request, res: express.Response, next: express.N
     (req as any).user = user;
     next();
   } catch (err) {
-    return res.status(403).json({ error: "Token inválido ou expirado" });
+    return res.status(401).json({ error: "Token inválido ou expirado" });
   }
 };
 
