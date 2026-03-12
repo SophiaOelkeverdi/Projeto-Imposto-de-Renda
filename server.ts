@@ -418,17 +418,30 @@ app.post("/api/import/clients", async (req, res) => {
   const { data } = req.body;
   try {
     for (const row of data) {
-      // Supabase upsert based on CPF
-      await supabase.from('clients').upsert({
-        code: row.code || '',
-        name: row.name,
-        cpf: row.cpf,
-        type: row.type || 'PF',
-        company: row.company || '',
-        phone: row.phone || '',
-        email: row.email || '',
-        observations: row.observations || ''
-      }, { onConflict: 'cpf' });
+      const { data: existing } = await supabase.from('clients').select('id').eq('cpf', row.cpf).single();
+      
+      if (existing) {
+        const updates: any = {
+          name: row.name,
+          type: row.type || 'PF',
+        };
+        if (row.code) updates.code = row.code;
+        if (row.company) updates.company = row.company;
+        
+        await supabase.from('clients').update(updates).eq('id', existing.id);
+      } else {
+        await supabase.from('clients').insert([{
+          code: row.code || '',
+          name: row.name,
+          cpf: row.cpf,
+          type: row.type || 'PF',
+          company: row.company || '',
+          phone: row.phone || '',
+          email: row.email || '',
+          observations: row.observations || '',
+          needs_declaration: 0
+        }]);
+      }
     }
     res.json({ success: true });
   } catch (error: any) {
