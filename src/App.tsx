@@ -262,6 +262,8 @@ export default function App() {
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
   
   // Modals
   const [showNewClient, setShowNewClient] = useState(false);
@@ -328,12 +330,23 @@ export default function App() {
     }
   };
 
-  const authFetch = (url: string, options: RequestInit = {}) => {
+  const authFetch = async (url: string, options: RequestInit = {}) => {
     const headers = {
       ...options.headers,
       'Authorization': `Bearer ${authToken || ''}`
     };
-    return fetch(url, { ...options, headers });
+    try {
+      const res = await fetch(url, { ...options, headers });
+      if (res.status === 401) {
+        setCurrentUser(null);
+        setAuthToken(null);
+        setInitialLoad(true);
+      }
+      return res;
+    } catch (error) {
+      // Network error (e.g., server down)
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -401,6 +414,7 @@ export default function App() {
   const fetchData = async () => {
     if (!currentUser) return;
     setLoading(true);
+    setDataError(null);
     try {
       const [statsRes, clientsRes, declsRes, profsRes] = await Promise.all([
         authFetch('/api/dashboard/stats'),
@@ -412,6 +426,7 @@ export default function App() {
       if (statsRes.status === 401 || clientsRes.status === 401 || declsRes.status === 401 || profsRes.status === 401) {
         setCurrentUser(null);
         setAuthToken(null);
+        setInitialLoad(true);
         return;
       }
 
@@ -446,10 +461,12 @@ export default function App() {
       setClients(clientsData);
       setDeclarations(declsData);
       setProfessionals(profsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching data:', error);
+      setDataError(error.message || 'Erro de conexão com o servidor');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   };
 
@@ -844,6 +861,38 @@ export default function App() {
     }} />;
   }
 
+  if (dataError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 flex-col gap-6 p-4 text-center font-sans">
+        <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-2">
+          <AlertCircle size={40} />
+        </div>
+        <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Erro de Conexão</h2>
+        <p className="text-slate-600 max-w-md">{dataError}</p>
+        <p className="text-sm text-slate-500 max-w-md">
+          O servidor pode estar reiniciando ou indisponível no momento. Por favor, tente novamente em alguns instantes.
+        </p>
+        <button 
+          onClick={() => {
+            setInitialLoad(true);
+            fetchData();
+          }} 
+          className="mt-4 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    );
+  }
+
+  if (initialLoad) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Confirmation Modal */}
@@ -967,6 +1016,7 @@ export default function App() {
                 localStorage.removeItem('authToken');
                 setCurrentUser(null);
                 setAuthToken(null);
+                setInitialLoad(true);
               }}
               className="flex items-center justify-center gap-1.5 py-2 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold hover:bg-rose-100 transition-all"
               title="Sair"

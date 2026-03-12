@@ -174,7 +174,7 @@ app.post("/api/clients", async (req, res) => {
         client_id: clientId,
         professional_id: null,
         received_date: today,
-        status: 'Aguardando Documentos',
+        status: 'Recebido',
         has_tax_to_pay: 0,
         tax_amount: 0
       }]);
@@ -208,7 +208,7 @@ app.patch("/api/clients/:id", async (req, res) => {
           client_id: parseInt(id),
           professional_id: null,
           received_date: today,
-          status: 'Aguardando Documentos',
+          status: 'Recebido',
           has_tax_to_pay: 0,
           tax_amount: 0
         }]);
