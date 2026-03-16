@@ -218,6 +218,26 @@ app.patch("/api/clients/:id", async (req, res) => {
           throw declError;
         }
       }
+    } else if (updates.needs_declaration === 0) {
+      // Delete the declaration and its related records if any
+      // We start by deleting the declaration, assuming ON DELETE CASCADE is set or we do it manually
+      // To be safe and thorough, we delete calls and attachments first if they don't have cascade
+      const { data: declsToDelete } = await supabase.from('declarations').select('id').eq('client_id', parseInt(id));
+      
+      if (declsToDelete && declsToDelete.length > 0) {
+        const declIds = declsToDelete.map(d => d.id);
+        
+        // Delete related records
+        await supabase.from('attachments').delete().in('declaration_id', declIds);
+        await supabase.from('calls').delete().in('declaration_id', declIds);
+        
+        // Delete the declarations
+        const { error: deleteError } = await supabase.from('declarations').delete().in('id', declIds);
+        if (deleteError) {
+          console.error("Error deleting declaration:", deleteError);
+          throw deleteError;
+        }
+      }
     }
 
     res.json({ success: true });
