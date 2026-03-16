@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS declarations (
   status TEXT DEFAULT 'Recebido',
   has_tax_to_pay INTEGER DEFAULT 0,
   tax_amount REAL DEFAULT 0,
+  observations TEXT,
   FOREIGN KEY (client_id) REFERENCES clients(id),
   FOREIGN KEY (professional_id) REFERENCES professionals(id)
 );

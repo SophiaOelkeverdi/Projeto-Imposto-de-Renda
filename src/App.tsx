@@ -49,7 +49,7 @@ import {
 
 // Types
 type ClientType = 'PF' | 'SOCIO';
-type DeclarationStatus = 'Aguardando Documentos' | 'Recebido' | 'Em processamento' | 'Aguardando cliente' | 'Aguardando pagamento' | 'Concluído' | 'Transmitido';
+type DeclarationStatus = 'Aguardando Documentos' | 'Contato Realizado' | 'Recebido' | 'Em processamento' | 'Aguardando cliente' | 'Aguardando pagamento' | 'Concluído' | 'Transmitido';
 
 interface Client {
   id: number;
@@ -87,6 +87,7 @@ interface Declaration {
   status: DeclarationStatus;
   has_tax_to_pay: number;
   tax_amount: number;
+  observations?: string;
 }
 
 interface Call {
@@ -127,6 +128,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: { icon: any, label:
 const StatusBadge = ({ status }: { status: DeclarationStatus }) => {
   const colors: Record<DeclarationStatus, string> = {
     'Aguardando Documentos': 'bg-slate-100 text-slate-600 border-slate-200',
+    'Contato Realizado': 'bg-cyan-100 text-cyan-700 border-cyan-200',
     'Recebido': 'bg-blue-100 text-blue-700 border-blue-200',
     'Em processamento': 'bg-amber-100 text-amber-700 border-amber-200',
     'Aguardando cliente': 'bg-purple-100 text-purple-700 border-purple-200',
@@ -297,6 +299,7 @@ export default function App() {
   const [clientCpfFilter, setClientCpfFilter] = useState('');
   const [clientCategoryFilter, setClientCategoryFilter] = useState('');
   const [clientNeedsDeclarationFilter, setClientNeedsDeclarationFilter] = useState<string>('all');
+  const [updatingClientId, setUpdatingClientId] = useState<number | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editingDeclaration, setEditingDeclaration] = useState<Declaration | null>(null);
   const [currentUser, setCurrentUser] = useState<Professional | null>(() => {
@@ -679,8 +682,35 @@ export default function App() {
   };
 
   const handleToggleNeedsDeclaration = async (client: Client) => {
+    if (updatingClientId === client.id) return;
+    setUpdatingClientId(client.id);
     const newStatus = client.needs_declaration === 1 ? 0 : 1;
-    await handleUpdateClient(client.id, { needs_declaration: newStatus });
+    
+    // Optimistic update
+    setClients(prev => prev.map(c => c.id === client.id ? { ...c, needs_declaration: newStatus } : c));
+    
+    try {
+      const res = await authFetch(`/api/clients/${client.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ needs_declaration: newStatus })
+      });
+      if (res.ok) {
+        fetchData(); // Refresh to get the new declaration if created
+      } else {
+        // Revert on failure
+        setClients(prev => prev.map(c => c.id === client.id ? { ...c, needs_declaration: client.needs_declaration } : c));
+        const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
+        alert(`Erro ao atualizar cliente: ${errMsg}`);
+      }
+    } catch (error) {
+      // Revert on failure
+      setClients(prev => prev.map(c => c.id === client.id ? { ...c, needs_declaration: client.needs_declaration } : c));
+      console.error('Error updating client:', error);
+      alert('Erro de conexão ao atualizar cliente.');
+    } finally {
+      setUpdatingClientId(null);
+    }
   };
 
   const handleExportProductivity = () => {
@@ -1222,6 +1252,7 @@ export default function App() {
               >
                 <option value="all">Todos os Status</option>
                 <option value="Aguardando Documentos">Aguardando Documentos</option>
+                <option value="Contato Realizado">Contato Realizado</option>
                 <option value="Recebido">Recebido</option>
                 <option value="Em processamento">Em processamento</option>
                 <option value="Aguardando cliente">Aguardando cliente</option>
@@ -1256,6 +1287,7 @@ export default function App() {
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Responsável</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Recebimento</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Imposto</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Observações</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
@@ -1300,6 +1332,7 @@ export default function App() {
                           }`}
                         >
                           <option value="Aguardando Documentos">Aguardando Documentos</option>
+                          <option value="Contato Realizado">Contato Realizado</option>
                           <option value="Recebido">Recebido</option>
                           <option value="Em processamento">Em processamento</option>
                           <option value="Aguardando cliente">Aguardando cliente</option>
@@ -1323,6 +1356,19 @@ export default function App() {
                         ) : (
                           <span className="text-sm text-slate-400">N/A</span>
                         )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="text"
+                          defaultValue={d.observations || ''}
+                          onBlur={(e) => {
+                            if (e.target.value !== (d.observations || '')) {
+                              handleUpdateDeclaration(d.id, { observations: e.target.value });
+                            }
+                          }}
+                          placeholder="Adicionar observação..."
+                          className="w-full text-sm text-slate-600 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors px-1 py-0.5"
+                        />
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1504,13 +1550,22 @@ export default function App() {
                           <td className="px-6 py-4">
                             <button 
                               onClick={() => handleToggleNeedsDeclaration(client)}
+                              disabled={updatingClientId === client.id}
                               className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                updatingClientId === client.id ? 'opacity-50 cursor-not-allowed' : ''
+                              } ${
                                 client.needs_declaration === 1 
-                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                                  : 'bg-slate-50 text-slate-400 border border-slate-100'
+                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100' 
+                                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
                               }`}
                             >
-                              {client.needs_declaration === 1 ? <CheckSquare size={14} /> : <Square size={14} />}
+                              {updatingClientId === client.id ? (
+                                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              ) : client.needs_declaration === 1 ? (
+                                <CheckSquare size={14} />
+                              ) : (
+                                <Square size={14} />
+                              )}
                               {client.needs_declaration === 1 ? 'SIM' : 'NÃO'}
                             </button>
                           </td>
@@ -1796,6 +1851,7 @@ export default function App() {
                         className="w-full bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer"
                       >
                         <option value="Aguardando Documentos">Aguardando Documentos</option>
+                        <option value="Contato Realizado">Contato Realizado</option>
                         <option value="Recebido">Recebido</option>
                         <option value="Em processamento">Em processamento</option>
                         <option value="Aguardando cliente">Aguardando cliente</option>
@@ -1991,7 +2047,8 @@ export default function App() {
                   status: data.status,
                   received_date: data.received_date || null,
                   has_tax_to_pay: data.has_tax_to_pay === 'on' ? 1 : 0,
-                  tax_amount: parseFloat(data.tax_amount as string) || 0
+                  tax_amount: parseFloat(data.tax_amount as string) || 0,
+                  observations: data.observations || null
                 } as any);
               }} className="space-y-4">
                 <div>
@@ -2014,6 +2071,7 @@ export default function App() {
                     <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status</label>
                     <select name="status" defaultValue={editingDeclaration.status} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none">
                       <option value="Aguardando Documentos">Aguardando Documentos</option>
+                      <option value="Contato Realizado">Contato Realizado</option>
                       <option value="Recebido">Recebido</option>
                       <option value="Em processamento">Em processamento</option>
                       <option value="Aguardando cliente">Aguardando cliente</option>
@@ -2030,6 +2088,10 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Valor do Imposto (R$)</label>
                   <input type="number" step="0.01" name="tax_amount" defaultValue={editingDeclaration.tax_amount} placeholder="0.00" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Observações</label>
+                  <textarea name="observations" defaultValue={editingDeclaration.observations} placeholder="Adicionar observação..." className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none" rows={3}></textarea>
                 </div>
                 <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setEditingDeclaration(null)} className="flex-1 py-2 text-slate-500 font-bold">Cancelar</button>
@@ -2205,7 +2267,8 @@ export default function App() {
                     ...data,
                     received_date: data.received_date || null,
                     has_tax_to_pay: data.has_tax_to_pay === 'on',
-                    tax_amount: parseFloat(data.tax_amount as string || '0')
+                    tax_amount: parseFloat(data.tax_amount as string || '0'),
+                    observations: data.observations || null
                   })
                 });
                 setShowNewDeclaration(false);
@@ -2233,6 +2296,7 @@ export default function App() {
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status Inicial</label>
                   <select name="status" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20">
                     <option value="Aguardando Documentos">Aguardando Documentos</option>
+                    <option value="Contato Realizado">Contato Realizado</option>
                     <option value="Recebido">Recebido</option>
                     <option value="Em processamento">Em processamento</option>
                     <option value="Aguardando cliente">Aguardando cliente</option>
@@ -2252,6 +2316,10 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Valor do Imposto (R$)</label>
                   <input type="number" step="0.01" name="tax_amount" placeholder="0,00" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Observações</label>
+                  <textarea name="observations" placeholder="Adicionar observação..." className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none" rows={3}></textarea>
                 </div>
                 <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setShowNewDeclaration(false)} className="flex-1 py-2 text-slate-500 font-bold">Cancelar</button>

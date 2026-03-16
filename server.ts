@@ -172,12 +172,11 @@ app.post("/api/clients", async (req, res) => {
     const clientId = data[0].id;
     
     if (needsDecl === 1) {
-      const today = new Date().toISOString().split('T')[0];
       const { error: declError } = await supabase.from('declarations').insert([{
         client_id: clientId,
         professional_id: null,
-        received_date: today,
-        status: 'Recebido',
+        received_date: null,
+        status: 'Aguardando Documentos',
         has_tax_to_pay: 0,
         tax_amount: 0
       }]);
@@ -206,12 +205,11 @@ app.patch("/api/clients/:id", async (req, res) => {
     if (updates.needs_declaration === 1) {
       const { data: existingDecls } = await supabase.from('declarations').select('id').eq('client_id', parseInt(id));
       if (!existingDecls || existingDecls.length === 0) {
-        const today = new Date().toISOString().split('T')[0];
         const { error: declError } = await supabase.from('declarations').insert([{
           client_id: parseInt(id),
           professional_id: null,
-          received_date: today,
-          status: 'Recebido',
+          received_date: null,
+          status: 'Aguardando Documentos',
           has_tax_to_pay: 0,
           tax_amount: 0
         }]);
@@ -316,16 +314,17 @@ app.get("/api/declarations", async (req, res) => {
 });
 
 app.post("/api/declarations", async (req, res) => {
-  const { client_id, professional_id, received_date, status, has_tax_to_pay, tax_amount } = req.body;
+  const { client_id, professional_id, received_date, status, has_tax_to_pay, tax_amount, observations } = req.body;
   const profId = professional_id === "" || professional_id == null ? null : parseInt(professional_id);
   try {
     const { data, error } = await supabase
       .from('declarations')
       .insert([{ 
         client_id: parseInt(client_id), professional_id: profId, received_date: received_date || null, 
-        status: status || 'Recebido', 
+        status: status || 'Aguardando Documentos', 
         has_tax_to_pay: has_tax_to_pay ? 1 : 0, 
-        tax_amount: tax_amount || 0 
+        tax_amount: tax_amount || 0,
+        observations: observations || null
       }])
       .select();
     if (error) throw error;
@@ -619,7 +618,15 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, "dist")));
+    app.use(express.static(path.join(__dirname, "dist"), {
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      }
+    }));
     
     // Prevent fallback to index.html for missing assets
     app.use("/assets/*", (req, res) => {
@@ -627,6 +634,9 @@ async function startServer() {
     });
     
     app.get("*", (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
