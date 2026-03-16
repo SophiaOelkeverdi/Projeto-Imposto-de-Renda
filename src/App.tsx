@@ -1437,132 +1437,125 @@ export default function App() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredClients.map(client => {
-              const isPF = !client.company || 
-                          client.company.toLowerCase().includes('pessoa fisica') || 
-                          client.company.toLowerCase().includes('pf') ||
-                          client.company.toLowerCase().includes('pesso fisica');
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Declaração</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredClients.map(client => {
+                      const isPF = !client.company || 
+                                  client.company.toLowerCase().includes('pessoa fisica') || 
+                                  client.company.toLowerCase().includes('pf') ||
+                                  client.company.toLowerCase().includes('pesso fisica');
 
-              return (
-              <motion.div 
-                layout
-                key={client.id} 
-                className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${!isPF ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {!isPF ? <Building2 size={24} /> : <User size={24} />}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      {client.code && (
-                        <div className="w-fit bg-slate-800 px-2 py-0.5 rounded text-[10px] font-black text-white uppercase tracking-wider">
-                          Cód. {client.code}
-                        </div>
-                      )}
-                      <div className={`text-[10px] font-bold px-2 py-0.5 rounded w-fit ${!isPF ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
-                        {!isPF ? 'Sócio / Empresa' : 'Pessoa Física'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingClient(client);
-                      }}
-                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                      title="Editar Cliente"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClient(client.id);
-                      }}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                      title="Excluir Cliente"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                    <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all">
-                      <MoreVertical size={18} />
-                    </button>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-lg font-bold text-slate-800">{client.name}</h4>
-                  <button 
-                    onClick={() => handleToggleNeedsDeclaration(client)}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                      client.needs_declaration === 1 
-                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                        : 'bg-slate-50 text-slate-400 border border-slate-100'
-                    }`}
-                  >
-                    {client.needs_declaration === 1 ? <CheckSquare size={14} /> : <Square size={14} />}
-                    {client.needs_declaration === 1 ? 'DECLARAÇÃO: SIM' : 'DECLARAÇÃO: NÃO'}
-                  </button>
-                </div>
-                <p className="text-sm text-slate-500 mb-4">{client.cpf}</p>
-                
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                      <PhoneCall size={14} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Telefone</p>
-                      <p className="font-medium">{client.phone || 'Não informado'}</p>
-                    </div>
-                  </div>
-                  {client.company && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${!isPF ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
-                        {!isPF ? <Building2 size={14} /> : <User size={14} />}
-                      </div>
-                      <div>
-                        <p className={`text-[10px] font-bold uppercase leading-none mb-1 ${!isPF ? 'text-indigo-400' : 'text-blue-400'}`}>
-                          {!isPF ? 'Empresa / Categoria' : 'Categoria'}
-                        </p>
-                        <p className="font-medium text-slate-700">
-                          {client.company.replace(/pesso fisica/gi, 'Pessoa fisica')}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {client.email && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                        <Mail size={14} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">E-mail</p>
-                        <p className="font-medium truncate max-w-[180px]">{client.email}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <button className="w-full py-2 bg-slate-50 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-100 transition-colors">
-                  Ver Histórico
-                </button>
-              </motion.div>
-            )})}
-            {filteredClients.length === 0 && (
-              <div className="col-span-full py-20 text-center">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                  <Search size={32} />
-                </div>
-                <p className="text-slate-500 font-medium">Nenhum cliente encontrado</p>
-                <p className="text-slate-400 text-sm">Tente ajustar sua pesquisa.</p>
+                      return (
+                        <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-slate-400">#{client.code || '---'}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${!isPF ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {!isPF ? <Building2 size={16} /> : <User size={16} />}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">{client.name}</p>
+                                <p className="text-xs text-slate-400">{client.cpf}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1">
+                              {client.phone && (
+                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                                  <PhoneCall size={12} className="text-slate-400" />
+                                  <span>{client.phone}</span>
+                                </div>
+                              )}
+                              {client.email && (
+                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                                  <Mail size={12} className="text-slate-400" />
+                                  <span className="truncate max-w-[150px]">{client.email}</span>
+                                </div>
+                              )}
+                              {!client.phone && !client.email && (
+                                <span className="text-xs text-slate-400 italic">Não informado</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {client.company ? (
+                              <span className="text-xs font-medium text-slate-600">
+                                {client.company.replace(/pesso fisica/gi, 'Pessoa física')}
+                              </span>
+                            ) : (
+                              <span className="text-xs font-medium text-slate-400 italic">Não informada</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button 
+                              onClick={() => handleToggleNeedsDeclaration(client)}
+                              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                client.needs_declaration === 1 
+                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                                  : 'bg-slate-50 text-slate-400 border border-slate-100'
+                              }`}
+                            >
+                              {client.needs_declaration === 1 ? <CheckSquare size={14} /> : <Square size={14} />}
+                              {client.needs_declaration === 1 ? 'SIM' : 'NÃO'}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingClient(client);
+                                }}
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                title="Editar Cliente"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClient(client.id);
+                                }}
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                title="Excluir Cliente"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+              {filteredClients.length === 0 && (
+                <div className="py-20 text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                    <Search size={32} />
+                  </div>
+                  <p className="text-slate-500 font-medium">Nenhum cliente encontrado</p>
+                  <p className="text-slate-400 text-sm">Tente ajustar sua pesquisa.</p>
+                </div>
+              )}
+            </div>
         </div>
       )}
 
