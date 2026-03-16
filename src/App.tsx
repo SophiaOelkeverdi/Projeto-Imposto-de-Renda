@@ -206,7 +206,7 @@ const Login = ({ onLogin }: { onLogin: (user: Professional, token: string) => vo
           {error && (
             <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold flex items-center gap-2 border border-rose-100">
               <AlertCircle size={18} />
-              {error}
+              <span>{error}</span>
             </div>
           )}
           
@@ -245,7 +245,7 @@ const Login = ({ onLogin }: { onLogin: (user: Professional, token: string) => vo
             disabled={loading}
             className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black tracking-wide hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
           >
-            {loading ? 'ENTRANDO...' : 'ENTRAR NO SISTEMA'}
+            <span>{loading ? 'ENTRANDO...' : 'ENTRAR NO SISTEMA'}</span>
           </button>
           
           <p className="text-center text-xs text-slate-400 font-medium">
@@ -1146,10 +1146,10 @@ export default function App() {
             >
               <Plus size={18} />
               <span className="text-sm font-medium">
-                {activeTab === 'clients' && 'Novo Cliente'}
-                {activeTab === 'professionals' && 'Novo Profissional'}
-                {activeTab === 'declarations' && 'Nova Declaração'}
-                {activeTab === 'dashboard' && 'Nova Declaração'}
+                {activeTab === 'clients' && <span>Novo Cliente</span>}
+                {activeTab === 'professionals' && <span>Novo Profissional</span>}
+                {activeTab === 'declarations' && <span>Nova Declaração</span>}
+                {activeTab === 'dashboard' && <span>Nova Declaração</span>}
               </span>
             </button>
           </div>
@@ -1216,7 +1216,12 @@ export default function App() {
                       <div key={p.id}>
                         <div className="flex justify-between items-center mb-2">
                           <p className="text-sm font-semibold text-slate-700">{p.name}</p>
-                          <p className="text-xs text-slate-400">{completed}/{count} concluídas</p>
+                          <p className="text-xs text-slate-400">
+                            <span>{completed}</span>
+                            <span>/</span>
+                            <span>{count}</span>
+                            <span> concluídas</span>
+                          </p>
                         </div>
                         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${progress}%` }} />
@@ -1351,7 +1356,10 @@ export default function App() {
                         {d.has_tax_to_pay ? (
                           <div className="flex items-center gap-1.5 text-rose-600">
                             <AlertCircle size={14} />
-                            <span className="text-sm font-medium">R$ {d.tax_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            <span className="text-sm font-medium">
+                              <span>R$ </span>
+                              <span>{d.tax_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </span>
                           </div>
                         ) : (
                           <span className="text-sm text-slate-400">N/A</span>
@@ -1566,7 +1574,7 @@ export default function App() {
                               ) : (
                                 <Square size={14} />
                               )}
-                              {client.needs_declaration === 1 ? 'SIM' : 'NÃO'}
+                              <span>{client.needs_declaration === 1 ? 'SIM' : 'NÃO'}</span>
                             </button>
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -1706,7 +1714,10 @@ export default function App() {
                               style={{ width: `${prof.percentage}%` }}
                             />
                           </div>
-                          <span className="text-xs font-bold text-slate-700">{prof.percentage}%</span>
+                          <span className="text-xs font-bold text-slate-700">
+                            <span>{prof.percentage}</span>
+                            <span>%</span>
+                          </span>
                         </div>
                       </td>
                     </tr>
@@ -1785,7 +1796,9 @@ export default function App() {
                     <h3 className="text-xl font-bold text-slate-800">Detalhes da Declaração</h3>
                     <p className="text-sm text-slate-500">
                       {selectedDeclaration.client_code && <span className="font-black text-slate-900 mr-2">#{selectedDeclaration.client_code}</span>}
-                      {selectedDeclaration.client_name} • CPF: {selectedDeclaration.client_cpf}
+                      <span>{selectedDeclaration.client_name}</span>
+                      <span> • CPF: </span>
+                      <span>{selectedDeclaration.client_cpf}</span>
                     </p>
                   </div>
                 </div>
@@ -1896,7 +1909,7 @@ export default function App() {
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                       <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Imposto</p>
                       <p className={`text-sm font-bold ${selectedDeclaration.has_tax_to_pay ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {selectedDeclaration.has_tax_to_pay ? `R$ ${selectedDeclaration.tax_amount.toLocaleString('pt-BR')}` : 'Não'}
+                        <span>{selectedDeclaration.has_tax_to_pay ? `R$ ${selectedDeclaration.tax_amount.toLocaleString('pt-BR')}` : 'Não'}</span>
                       </p>
                     </div>
                   </section>
@@ -1924,7 +1937,10 @@ export default function App() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-slate-700 truncate">{att.original_name}</p>
-                              <p className="text-xs text-slate-400">{(att.file_size / 1024).toFixed(1)} KB</p>
+                              <p className="text-xs text-slate-400">
+                                <span>{(att.file_size / 1024).toFixed(1)}</span>
+                                <span> KB</span>
+                              </p>
                             </div>
                             <Download size={16} className="text-slate-400" />
                           </a>
@@ -2280,7 +2296,7 @@ export default function App() {
                     <option value="">Selecione um cliente</option>
                     {clients.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.code ? `[${c.code}] ` : ''}{c.name} ({c.cpf}){c.company ? ` - ${c.company}` : ''}
+                        {`${c.code ? `[${c.code}] ` : ''}${c.name} (${c.cpf})${c.company ? ` - ${c.company}` : ''}`}
                       </option>
                     ))}
                   </select>
