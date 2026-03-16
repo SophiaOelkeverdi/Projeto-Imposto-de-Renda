@@ -259,7 +259,8 @@ const Login = ({ onLogin }: { onLogin: (user: Professional, token: string) => vo
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'declarations' | 'professionals' | 'reports' | 'non_declarants' | 'tax_to_pay'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'declarations' | 'professionals' | 'reports' | 'tax_to_pay'>('dashboard');
+  const [clientSubTab, setClientSubTab] = useState<'to_declare' | 'not_to_declare'>('to_declare');
   const [stats, setStats] = useState({ total: 0, inProgress: 0, completed: 0, transmitted: 0, taxToPay: 0 });
   const [clients, setClients] = useState<Client[]>([]);
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
@@ -300,7 +301,6 @@ export default function App() {
   const [clientCodeFilter, setClientCodeFilter] = useState('');
   const [clientCpfFilter, setClientCpfFilter] = useState('');
   const [clientCategoryFilter, setClientCategoryFilter] = useState('');
-  const [clientNeedsDeclarationFilter, setClientNeedsDeclarationFilter] = useState<string>('all');
   const [updatingClientId, setUpdatingClientId] = useState<number | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editingDeclaration, setEditingDeclaration] = useState<Declaration | null>(null);
@@ -496,11 +496,6 @@ export default function App() {
     return declarations.filter(d => d.has_tax_to_pay === 1);
   }, [declarations]);
 
-  const filteredNonDeclarants = useMemo(() => {
-    if (!Array.isArray(clients)) return [];
-    return clients.filter(c => c.needs_declaration === 0);
-  }, [clients]);
-
   const filteredClients = useMemo(() => {
     if (!Array.isArray(clients)) return [];
     return clients.filter(c => {
@@ -508,13 +503,12 @@ export default function App() {
       const matchesCode = !clientCodeFilter || (c.code && c.code.toLowerCase().includes(clientCodeFilter.toLowerCase()));
       const matchesCpf = !clientCpfFilter || c.cpf?.includes(clientCpfFilter);
       const matchesCategory = !clientCategoryFilter || (c.company && c.company.toLowerCase().includes(clientCategoryFilter.toLowerCase()));
-      const matchesNeedsDeclaration = clientNeedsDeclarationFilter === 'all' || 
-                                     (clientNeedsDeclarationFilter === 'yes' && c.needs_declaration === 1) ||
-                                     (clientNeedsDeclarationFilter === 'no' && c.needs_declaration === 0);
       
-      return matchesSearch && matchesCode && matchesCpf && matchesCategory && matchesNeedsDeclaration;
+      const matchesSubTab = clientSubTab === 'to_declare' ? c.needs_declaration === 1 : c.needs_declaration === 0;
+      
+      return matchesSearch && matchesCode && matchesCpf && matchesCategory && matchesSubTab;
     });
-  }, [clients, clientSearchQuery, clientCodeFilter, clientCpfFilter, clientCategoryFilter, clientNeedsDeclarationFilter]);
+  }, [clients, clientSearchQuery, clientCodeFilter, clientCpfFilter, clientCategoryFilter, clientSubTab]);
 
   const handleStatusUpdate = async (id: number, newStatus: DeclarationStatus) => {
     const updates: any = { status: newStatus };
@@ -1060,12 +1054,6 @@ export default function App() {
             onClick={() => setActiveTab('tax_to_pay')} 
           />
           <SidebarItem 
-            icon={UserX} 
-            label="Não Declarantes" 
-            active={activeTab === 'non_declarants'} 
-            onClick={() => setActiveTab('non_declarants')} 
-          />
-          <SidebarItem 
             icon={User} 
             label="Profissionais" 
             active={activeTab === 'professionals'} 
@@ -1130,7 +1118,6 @@ export default function App() {
               {activeTab === 'clients' && 'Gestão de Clientes'}
               {activeTab === 'declarations' && 'Controle de Declarações'}
               {activeTab === 'tax_to_pay' && 'Clientes com Imposto a Pagar'}
-              {activeTab === 'non_declarants' && 'Clientes Não Declarantes'}
               {activeTab === 'professionals' && 'Equipe'}
               {activeTab === 'reports' && 'Relatórios de Produtividade'}
             </h2>
@@ -1156,7 +1143,7 @@ export default function App() {
             </label>
             <button 
               onClick={() => {
-                if (activeTab === 'clients' || activeTab === 'non_declarants') {
+                if (activeTab === 'clients') {
                   setNewClientType('PF');
                   setShowNewClient(true);
                 } else if (activeTab === 'professionals') {
@@ -1175,7 +1162,7 @@ export default function App() {
             >
               <Plus size={18} />
               <span className="text-sm font-medium">
-                {(activeTab === 'clients' || activeTab === 'non_declarants') && <span>Novo Cliente</span>}
+                {activeTab === 'clients' && <span>Novo Cliente</span>}
                 {activeTab === 'professionals' && <span>Novo Profissional</span>}
                 {(activeTab === 'declarations' || activeTab === 'dashboard' || activeTab === 'tax_to_pay') && <span>Nova Declaração</span>}
               </span>
@@ -1548,81 +1535,32 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'non_declarants' && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center">
-                <UserX size={24} />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Clientes Não Declarantes</h3>
-                <p className="text-sm text-slate-500">Clientes que foram marcados para não realizar declaração este ano.</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-bottom border-slate-200">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredNonDeclarants.map((client) => (
-                    <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-bold text-slate-400">
-                          <span>#</span>
-                          <span>{client.code || '---'}</span>
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                            <User size={16} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">{client.name}</p>
-                            <p className="text-xs text-slate-400">{client.cpf}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          {client.phone && <span className="text-xs text-slate-600">{client.phone}</span>}
-                          {client.email && <span className="text-xs text-slate-400">{client.email}</span>}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button 
-                          onClick={() => handleToggleNeedsDeclaration(client)}
-                          className="text-xs font-bold text-indigo-600 hover:underline"
-                        >
-                          Reativar Declaração
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredNonDeclarants.length === 0 && (
-                <div className="py-20 text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                    <Users size={32} />
-                  </div>
-                  <p className="text-slate-500 font-medium">Nenhum cliente não declarante</p>
-                  <p className="text-slate-400 text-sm">Todos os clientes estão marcados para realizar declaração.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {activeTab === 'clients' && (
           <div className="space-y-6">
+            {/* Sub-tabs for Clients */}
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+              <button 
+                onClick={() => setClientSubTab('to_declare')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  clientSubTab === 'to_declare' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Fazer Declaração
+              </button>
+              <button 
+                onClick={() => setClientSubTab('not_to_declare')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  clientSubTab === 'not_to_declare' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Não Fazer Declaração
+              </button>
+            </div>
+
             {/* Client Filters Bar */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center">
               <div className="relative flex-1 min-w-[200px]">
@@ -1665,25 +1603,14 @@ export default function App() {
                   onChange={(e) => setClientCategoryFilter(e.target.value)}
                 />
               </div>
-
-              <select 
-                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                value={clientNeedsDeclarationFilter}
-                onChange={(e) => setClientNeedsDeclarationFilter(e.target.value)}
-              >
-                <option value="all">Fazer Declaração: Todos</option>
-                <option value="yes">Sim</option>
-                <option value="no">Não</option>
-              </select>
               
-              {(clientSearchQuery || clientCodeFilter || clientCpfFilter || clientCategoryFilter || clientNeedsDeclarationFilter !== 'all') && (
+              {(clientSearchQuery || clientCodeFilter || clientCpfFilter || clientCategoryFilter) && (
                 <button 
                   onClick={() => {
                     setClientSearchQuery('');
                     setClientCodeFilter('');
                     setClientCpfFilter('');
                     setClientCategoryFilter('');
-                    setClientNeedsDeclarationFilter('all');
                   }}
                   className="text-xs font-bold text-rose-600 hover:underline"
                 >
@@ -2470,7 +2397,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" name="needs_declaration" id="new_needs_decl" defaultChecked={false} className="w-4 h-4 text-indigo-600 rounded" />
+                  <input type="checkbox" name="needs_declaration" id="new_needs_decl" defaultChecked={clientSubTab === 'to_declare'} className="w-4 h-4 text-indigo-600 rounded" />
                   <label htmlFor="new_needs_decl" className="text-sm font-medium text-slate-700">Necessário fazer declaração?</label>
                 </div>
                 <div className="pt-4 flex gap-3">
