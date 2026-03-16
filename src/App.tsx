@@ -833,7 +833,8 @@ export default function App() {
           body: JSON.stringify({ data: mappedData })
         });
         if (res.ok) {
-          alert(`${mappedData.length} clientes importados com sucesso!`);
+          const result = await res.json();
+          alert(`${result.inserted} clientes novos inseridos e ${result.updated} atualizados com sucesso!`);
           fetchData();
         } else {
           const errMsg = await parseErrorResponse(res, 'Erro desconhecido');

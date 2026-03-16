@@ -18,7 +18,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-in-product
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -429,21 +430,56 @@ app.delete("/api/attachments/:id", async (req, res) => {
 // Bulk Import
 app.post("/api/import/clients", async (req, res) => {
   const { data } = req.body;
+  if (!data || !Array.isArray(data)) {
+    return res.status(400).json({ error: "Invalid data format" });
+  }
+
   try {
+    // Fetch all existing clients to avoid N+1 queries
+    const { data: existingClients, error: fetchError } = await supabase.from('clients').select('id, cpf');
+    if (fetchError) throw fetchError;
+
+    const existingCpfMap = new Map();
+    if (existingClients) {
+      existingClients.forEach(c => {
+        if (c.cpf) existingCpfMap.set(c.cpf, c.id);
+      });
+    }
+
+    const toInsert = [];
+    const toUpdate = [];
+
     for (const row of data) {
-      const { data: existing } = await supabase.from('clients').select('id').eq('cpf', row.cpf).single();
+      if (!row.cpf) {
+        // If no CPF, just insert (or handle differently, but let's insert for now)
+        toInsert.push({
+          code: row.code || '',
+          name: row.name,
+          cpf: row.cpf || '',
+          type: row.type || 'PF',
+          company: row.company || '',
+          phone: row.phone || '',
+          email: row.email || '',
+          observations: row.observations || '',
+          needs_declaration: 0
+        });
+        continue;
+      }
+
+      const existingId = existingCpfMap.get(row.cpf);
       
-      if (existing) {
+      if (existingId) {
         const updates: any = {
+          id: existingId,
           name: row.name,
           type: row.type || 'PF',
         };
         if (row.code) updates.code = row.code;
         if (row.company) updates.company = row.company;
         
-        await supabase.from('clients').update(updates).eq('id', existing.id);
+        toUpdate.push(updates);
       } else {
-        await supabase.from('clients').insert([{
+        toInsert.push({
           code: row.code || '',
           name: row.name,
           cpf: row.cpf,
@@ -453,12 +489,58 @@ app.post("/api/import/clients", async (req, res) => {
           email: row.email || '',
           observations: row.observations || '',
           needs_declaration: 0
-        }]);
+        });
+        // Add to map to prevent duplicates in the same import batch
+        // We use a special value to indicate it's in the current insert batch
+        existingCpfMap.set(row.cpf, 'pending_insert'); 
       }
     }
-    res.json({ success: true });
+
+    // Filter out updates that have 'pending_insert' as ID (these are duplicates within the same import file)
+    // We only update clients that already existed in the database
+    const validUpdates = toUpdate.filter(u => u.id !== 'pending_insert');
+
+    // Bulk insert (Supabase supports arrays, but we should ensure all objects have the same keys)
+    if (toInsert.length > 0) {
+      // Ensure all objects have the same keys
+      const normalizedInsert = toInsert.map(item => ({
+        code: item.code || '',
+        name: item.name || '',
+        cpf: item.cpf || '',
+        type: item.type || 'PF',
+        company: item.company || '',
+        phone: item.phone || '',
+        email: item.email || '',
+        observations: item.observations || '',
+        needs_declaration: item.needs_declaration || 0
+      }));
+      
+      // Insert in chunks of 500 to avoid payload limits
+      const chunkSize = 500;
+      for (let i = 0; i < normalizedInsert.length; i += chunkSize) {
+        const chunk = normalizedInsert.slice(i, i + chunkSize);
+        const { error: insertError } = await supabase.from('clients').insert(chunk);
+        if (insertError) throw insertError;
+      }
+    }
+
+    // Individual updates in parallel (batched) to avoid overwriting missing fields with upsert
+    if (validUpdates.length > 0) {
+      const batchSize = 50;
+      for (let i = 0; i < validUpdates.length; i += batchSize) {
+        const batch = validUpdates.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (update) => {
+          const { id, ...fields } = update;
+          const { error } = await supabase.from('clients').update(fields).eq('id', id);
+          if (error) console.error(`Error updating client ${id}:`, error);
+        }));
+      }
+    }
+
+    res.json({ success: true, inserted: toInsert.length, updated: validUpdates.length });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("Import error:", error);
+    res.status(500).json({ error: error.message || "Erro ao importar clientes" });
   }
 });
 
@@ -494,7 +576,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   if (res.headersSent) {
     return next(err);
   }
-  res.status(500).json({ error: "Erro interno do servidor" });
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || "Erro interno do servidor" });
 });
 
 async function startServer() {
