@@ -608,6 +608,41 @@ export default function App() {
     setShowConfirm(true);
   };
 
+  const handleDeleteAllClients = async () => {
+    setConfirmConfig({
+      title: 'Excluir Todos os Clientes',
+      message: 'ALERTA: Tem certeza que deseja excluir TODOS os clientes? Esta ação é irreversível e excluirá também todas as declarações, chamadas e arquivos anexos vinculados a eles.',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await authFetch(`/api/clients`, {
+            method: 'DELETE'
+          });
+          
+          if (res.ok) {
+            console.log('All clients deleted successfully');
+            fetchData();
+          } else {
+            let errorMsg = 'Erro desconhecido';
+            try {
+              const errMsg = await parseErrorResponse(res, errorMsg);
+              errorMsg = errMsg;
+              console.error('Server error deleting all clients:', errMsg);
+            } catch (e) {
+              console.error('Could not parse error response:', e);
+            }
+            alert(`Erro ao excluir todos: ${errorMsg}`);
+          }
+        } catch (error) {
+          console.error('Network error deleting all clients:', error);
+          alert('Erro de conexão ao excluir todos os clientes. Verifique se o servidor está ativo.');
+        }
+        setShowConfirm(false);
+      }
+    });
+    setShowConfirm(true);
+  };
+
   const handleUpdateDeclaration = async (id: number, updates: Partial<Declaration>) => {
     try {
       const res = await authFetch(`/api/declarations/${id}`, {
@@ -795,13 +830,13 @@ export default function App() {
         // Fixed column order as requested:
         // 1. Code (Column A)
         // 2. Company/Category (Column B)
-        // 3. CPF/CNPJ (Column C)
-        // 4. Name (Column D)
+        // 3. Name (Column C)
+        // 4. CPF/CNPJ (Column D)
         
         const clientCode = row[0]?.toString().trim() || '';
         const company = row[1]?.toString().trim() || '';
-        const cpf = row[2]?.toString().trim() || '';
-        const name = row[3]?.toString().trim() || '';
+        const name = row[2]?.toString().trim() || '';
+        const cpf = row[3]?.toString().trim() || '';
         
         // Determine Type
         const digits = cpf.replace(/\D/g, '');
@@ -1046,6 +1081,15 @@ export default function App() {
           </div>
 
           <div className="flex gap-3">
+            {activeTab === 'clients' && currentUser.role === 'Administrador' && (
+              <button 
+                onClick={handleDeleteAllClients}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-rose-200 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors shadow-sm"
+              >
+                <Trash2 size={18} />
+                <span className="text-sm font-medium">Excluir Todos</span>
+              </button>
+            )}
             <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors shadow-sm">
               <Upload size={18} />
               <span className="text-sm font-medium">Importar Lista</span>

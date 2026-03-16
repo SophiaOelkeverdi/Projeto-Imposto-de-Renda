@@ -87,6 +87,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+
 app.use("/api", auth);
 
 app.post("/api/auth/change-password", async (req, res) => {
@@ -146,6 +147,7 @@ app.delete("/api/professionals/:id", adminOnly, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // Clients
 app.get("/api/clients", async (req, res) => {
@@ -226,6 +228,35 @@ app.patch("/api/clients/:id", async (req, res) => {
   }
 });
 
+// Delete all clients
+app.delete("/api/clients", async (req, res) => {
+  try {
+    // 1. Get all attachments
+    const { data: attachments } = await supabase.from('attachments').select('filename');
+    
+    // 2. Delete all files from disk
+    if (attachments) {
+      for (const att of attachments) {
+        const filePath = path.join(uploadDir, att.filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+    }
+
+    // 3. Delete records from database in correct order
+    await supabase.from('attachments').delete().neq('id', 0);
+    await supabase.from('calls').delete().neq('id', 0);
+    await supabase.from('declarations').delete().neq('id', 0);
+    const { error } = await supabase.from('clients').delete().neq('id', 0);
+    
+    if (error) throw error;
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete client
 app.delete("/api/clients/:id", async (req, res) => {
   const clientId = parseInt(req.params.id);
   if (isNaN(clientId)) return res.status(400).json({ error: "ID inválido" });
