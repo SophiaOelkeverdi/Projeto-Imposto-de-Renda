@@ -1489,7 +1489,7 @@ export default function App() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Vai Fazer
+                Declaração Confirmada
               </button>
               <button 
                 onClick={() => setClientSubTab('not_to_declare')}
@@ -1499,7 +1499,7 @@ export default function App() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Não Vai
+                Declaração Dispensada
               </button>
               <button 
                 onClick={() => setClientSubTab('pending')}
@@ -1509,7 +1509,7 @@ export default function App() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Sem Resposta
+                Não Selecionado
               </button>
             </div>
 
@@ -2279,15 +2279,15 @@ export default function App() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Vai fazer declaração?</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status da Declaração</label>
                   <select 
                     name="needs_declaration" 
                     defaultValue={editingClient.needs_declaration}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   >
-                    <option value="1">Sim, vai fazer</option>
-                    <option value="0">Não vai fazer</option>
-                    <option value="2">Não selecionado / Sem resposta</option>
+                    <option value="2">Não Selecionado</option>
+                    <option value="1">Sim</option>
+                    <option value="0">Não</option>
                   </select>
                 </div>
                 <div className="pt-4 flex gap-3">
@@ -2365,15 +2365,15 @@ export default function App() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Vai fazer declaração?</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status da Declaração</label>
                   <select 
                     name="needs_declaration" 
-                    defaultValue={clientSubTab === 'to_declare' ? '1' : clientSubTab === 'not_to_declare' ? '0' : '2'}
+                    defaultValue="2"
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   >
-                    <option value="1">Sim, vai fazer</option>
-                    <option value="0">Não vai fazer</option>
-                    <option value="2">Não selecionado / Sem resposta</option>
+                    <option value="2">Não Selecionado</option>
+                    <option value="1">Sim</option>
+                    <option value="0">Não</option>
                   </select>
                 </div>
                 <div className="pt-4 flex gap-3">
