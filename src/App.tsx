@@ -64,7 +64,7 @@ interface Client {
   phone?: string;
   email?: string;
   observations?: string;
-  needs_declaration: number;
+  needs_declaration: number | null;
 }
 
 interface Professional {
@@ -503,10 +503,10 @@ export default function App() {
       const matchesCpf = !clientCpfFilter || c.cpf?.includes(clientCpfFilter);
       const matchesCategory = !clientCategoryFilter || (c.company && c.company.toLowerCase().includes(clientCategoryFilter.toLowerCase()));
       
-      const status = c.needs_declaration ?? 2;
+      const status = c.needs_declaration;
       const matchesSubTab = clientSubTab === 'to_declare' ? status === 1 : 
                            clientSubTab === 'not_to_declare' ? status === 0 :
-                           status === 2;
+                           status === null || status === undefined;
       
       return matchesSearch && matchesCode && matchesCpf && matchesCategory && matchesSubTab;
     });
@@ -696,11 +696,11 @@ export default function App() {
     if (updatingClientId === client.id) return;
     setUpdatingClientId(client.id);
     
-    const currentStatus = client.needs_declaration ?? 2;
-    // Cycle: 2 (pending) -> 1 (yes) -> 0 (no) -> 2 (pending)
-    let newStatus = 1;
+    const currentStatus = client.needs_declaration;
+    // Cycle: null/undefined -> 1 (yes) -> 0 (no) -> null
+    let newStatus: number | null = 1;
     if (currentStatus === 1) newStatus = 0;
-    else if (currentStatus === 0) newStatus = 2;
+    else if (currentStatus === 0) newStatus = null;
     else newStatus = 1;
     
     // Optimistic update
@@ -1645,25 +1645,25 @@ export default function App() {
                               className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
                                 updatingClientId === client.id ? 'opacity-50 cursor-not-allowed' : ''
                               } ${
-                                (client.needs_declaration ?? 2) === 1 
+                                client.needs_declaration === 1 
                                   ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100' 
-                                  : (client.needs_declaration ?? 2) === 0
+                                  : client.needs_declaration === 0
                                   ? 'bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100'
                                   : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
                               }`}
                             >
                               {updatingClientId === client.id ? (
                                 <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              ) : (client.needs_declaration ?? 2) === 1 ? (
+                              ) : client.needs_declaration === 1 ? (
                                 <CheckSquare size={14} />
-                              ) : (client.needs_declaration ?? 2) === 0 ? (
+                              ) : client.needs_declaration === 0 ? (
                                 <XSquare size={14} />
                               ) : (
                                 <HelpCircle size={14} />
                               )}
                               <span>
-                                {(client.needs_declaration ?? 2) === 1 ? 'SIM' : 
-                                 (client.needs_declaration ?? 2) === 0 ? 'NÃO' : 
+                                {client.needs_declaration === 1 ? 'SIM' : 
+                                 client.needs_declaration === 0 ? 'NÃO' : 
                                  'PENDENTE'}
                               </span>
                             </button>
@@ -2236,7 +2236,7 @@ export default function App() {
                 const data = Object.fromEntries(formData.entries());
                 await handleUpdateClient(editingClient.id, {
                   ...data,
-                  needs_declaration: parseInt(data.needs_declaration as string)
+                  needs_declaration: data.needs_declaration === "null" ? null : parseInt(data.needs_declaration as string)
                 } as any);
               }} className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
@@ -2282,10 +2282,10 @@ export default function App() {
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status da Declaração</label>
                   <select 
                     name="needs_declaration" 
-                    defaultValue={editingClient.needs_declaration}
+                    defaultValue={editingClient.needs_declaration === null ? "null" : editingClient.needs_declaration.toString()}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   >
-                    <option value="2">Não Selecionado</option>
+                    <option value="null">Não Selecionado</option>
                     <option value="1">Sim</option>
                     <option value="0">Não</option>
                   </select>
@@ -2316,7 +2316,7 @@ export default function App() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     ...data,
-                    needs_declaration: parseInt(data.needs_declaration as string)
+                    needs_declaration: data.needs_declaration === "null" ? null : parseInt(data.needs_declaration as string)
                   })
                 });
                 setShowNewClient(false);
@@ -2368,10 +2368,10 @@ export default function App() {
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status da Declaração</label>
                   <select 
                     name="needs_declaration" 
-                    defaultValue="2"
+                    defaultValue="null"
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   >
-                    <option value="2">Não Selecionado</option>
+                    <option value="null">Não Selecionado</option>
                     <option value="1">Sim</option>
                     <option value="0">Não</option>
                   </select>
