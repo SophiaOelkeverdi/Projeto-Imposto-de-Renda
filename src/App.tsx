@@ -259,8 +259,9 @@ const Login = ({ onLogin }: { onLogin: (user: Professional, token: string) => vo
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'declarations' | 'professionals' | 'reports' | 'tax_to_pay'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'declarations' | 'professionals' | 'reports'>('dashboard');
   const [clientSubTab, setClientSubTab] = useState<'to_declare' | 'not_to_declare'>('to_declare');
+  const [declarationSubTab, setDeclarationSubTab] = useState<'all' | 'with_tax' | 'without_tax'>('all');
   const [stats, setStats] = useState({ total: 0, inProgress: 0, completed: 0, transmitted: 0, taxToPay: 0 });
   const [clients, setClients] = useState<Client[]>([]);
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
@@ -294,7 +295,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [taxToPayFilter, setTaxToPayFilter] = useState<string>('all');
   
   // Client Specific Filters
   const [clientSearchQuery, setClientSearchQuery] = useState('');
@@ -484,17 +484,14 @@ export default function App() {
                            (d.client_company && d.client_company.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
       const matchesType = typeFilter === 'all' || d.client_type === typeFilter;
-      const matchesTax = taxToPayFilter === 'all' || 
-                        (taxToPayFilter === 'yes' && d.has_tax_to_pay === 1) ||
-                        (taxToPayFilter === 'no' && d.has_tax_to_pay === 0);
-      return matchesSearch && matchesStatus && matchesType && matchesTax;
+      
+      const matchesSubTab = declarationSubTab === 'all' ? true :
+                           declarationSubTab === 'with_tax' ? d.has_tax_to_pay === 1 :
+                           d.has_tax_to_pay === 0;
+      
+      return matchesSearch && matchesStatus && matchesType && matchesSubTab;
     });
-  }, [declarations, searchQuery, statusFilter, typeFilter, taxToPayFilter]);
-
-  const filteredTaxToPay = useMemo(() => {
-    if (!Array.isArray(declarations)) return [];
-    return declarations.filter(d => d.has_tax_to_pay === 1);
-  }, [declarations]);
+  }, [declarations, searchQuery, statusFilter, typeFilter, declarationSubTab]);
 
   const filteredClients = useMemo(() => {
     if (!Array.isArray(clients)) return [];
@@ -1048,12 +1045,6 @@ export default function App() {
             onClick={() => setActiveTab('declarations')} 
           />
           <SidebarItem 
-            icon={AlertCircle} 
-            label="Imposto a Pagar" 
-            active={activeTab === 'tax_to_pay'} 
-            onClick={() => setActiveTab('tax_to_pay')} 
-          />
-          <SidebarItem 
             icon={User} 
             label="Profissionais" 
             active={activeTab === 'professionals'} 
@@ -1117,7 +1108,6 @@ export default function App() {
               {activeTab === 'dashboard' && 'Visão Geral'}
               {activeTab === 'clients' && 'Gestão de Clientes'}
               {activeTab === 'declarations' && 'Controle de Declarações'}
-              {activeTab === 'tax_to_pay' && 'Clientes com Imposto a Pagar'}
               {activeTab === 'professionals' && 'Equipe'}
               {activeTab === 'reports' && 'Relatórios de Produtividade'}
             </h2>
@@ -1164,7 +1154,7 @@ export default function App() {
               <span className="text-sm font-medium">
                 {activeTab === 'clients' && <span>Novo Cliente</span>}
                 {activeTab === 'professionals' && <span>Novo Profissional</span>}
-                {(activeTab === 'declarations' || activeTab === 'dashboard' || activeTab === 'tax_to_pay') && <span>Nova Declaração</span>}
+                {(activeTab === 'declarations' || activeTab === 'dashboard') && <span>Nova Declaração</span>}
               </span>
             </button>
           </div>
@@ -1253,91 +1243,42 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'tax_to_pay' && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
-                <AlertCircle size={24} />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Clientes com Imposto a Pagar</h3>
-                <p className="text-sm text-slate-500">Lista de declarações que resultaram em imposto devido.</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-bottom border-slate-200">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Valor do Imposto</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredTaxToPay.map((d) => (
-                    <tr key={d.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-bold text-slate-400">
-                          <span>#</span>
-                          <span>{d.client_code || '---'}</span>
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                            {d.client_type === 'SOCIO' ? <Building2 size={16} /> : <User size={16} />}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">{d.client_name}</p>
-                            <p className="text-xs text-slate-400">{d.client_cpf}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={d.status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5 text-rose-600">
-                          <AlertCircle size={14} />
-                          <span className="text-sm font-bold">
-                            <span>R$ </span>
-                            <span>{d.tax_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => setSelectedDeclaration(d)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Detalhes"
-                          >
-                            <ChevronRight size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredTaxToPay.length === 0 && (
-                <div className="py-20 text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                    <CheckCircle2 size={32} />
-                  </div>
-                  <p className="text-slate-500 font-medium">Nenhum imposto a pagar</p>
-                  <p className="text-slate-400 text-sm">Todas as declarações estão em dia ou sem imposto devido.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {activeTab === 'declarations' && (
           <div className="space-y-6">
+            {/* Sub-tabs for Declarations */}
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+              <button 
+                onClick={() => setDeclarationSubTab('all')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  declarationSubTab === 'all' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Todas
+              </button>
+              <button 
+                onClick={() => setDeclarationSubTab('with_tax')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  declarationSubTab === 'with_tax' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Com Imposto
+              </button>
+              <button 
+                onClick={() => setDeclarationSubTab('without_tax')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  declarationSubTab === 'without_tax' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Sem Imposto
+              </button>
+            </div>
+
             {/* Filters Bar */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center">
               <div className="relative flex-1 min-w-[200px]">
@@ -1375,16 +1316,6 @@ export default function App() {
                 <option value="all">Todos os Tipos</option>
                 <option value="PF">Pessoa Física</option>
                 <option value="SOCIO">Sócio de Empresa</option>
-              </select>
-
-              <select 
-                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                value={taxToPayFilter}
-                onChange={(e) => setTaxToPayFilter(e.target.value)}
-              >
-                <option value="all">Imposto: Todos</option>
-                <option value="yes">Com Imposto</option>
-                <option value="no">Sem Imposto</option>
               </select>
 
               <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
