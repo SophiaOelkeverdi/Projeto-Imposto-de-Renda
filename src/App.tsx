@@ -26,6 +26,8 @@ import {
   Edit,
   CheckSquare,
   Square,
+  XSquare,
+  HelpCircle,
   UserX,
   Lock,
   LogOut,
@@ -260,7 +262,7 @@ const Login = ({ onLogin }: { onLogin: (user: Professional, token: string) => vo
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'declarations' | 'professionals' | 'reports'>('dashboard');
-  const [clientSubTab, setClientSubTab] = useState<'to_declare' | 'not_to_declare'>('to_declare');
+  const [clientSubTab, setClientSubTab] = useState<'to_declare' | 'not_to_declare' | 'pending'>('pending');
   const [declarationSubTab, setDeclarationSubTab] = useState<'all' | 'with_tax' | 'without_tax'>('all');
   const [stats, setStats] = useState({ total: 0, inProgress: 0, completed: 0, transmitted: 0, taxToPay: 0 });
   const [clients, setClients] = useState<Client[]>([]);
@@ -501,7 +503,10 @@ export default function App() {
       const matchesCpf = !clientCpfFilter || c.cpf?.includes(clientCpfFilter);
       const matchesCategory = !clientCategoryFilter || (c.company && c.company.toLowerCase().includes(clientCategoryFilter.toLowerCase()));
       
-      const matchesSubTab = clientSubTab === 'to_declare' ? c.needs_declaration === 1 : c.needs_declaration === 0;
+      const status = c.needs_declaration ?? 2;
+      const matchesSubTab = clientSubTab === 'to_declare' ? status === 1 : 
+                           clientSubTab === 'not_to_declare' ? status === 0 :
+                           status === 2;
       
       return matchesSearch && matchesCode && matchesCpf && matchesCategory && matchesSubTab;
     });
@@ -690,7 +695,13 @@ export default function App() {
   const handleToggleNeedsDeclaration = async (client: Client) => {
     if (updatingClientId === client.id) return;
     setUpdatingClientId(client.id);
-    const newStatus = client.needs_declaration === 1 ? 0 : 1;
+    
+    const currentStatus = client.needs_declaration ?? 2;
+    // Cycle: 2 (pending) -> 1 (yes) -> 0 (no) -> 2 (pending)
+    let newStatus = 1;
+    if (currentStatus === 1) newStatus = 0;
+    else if (currentStatus === 0) newStatus = 2;
+    else newStatus = 1;
     
     // Optimistic update
     setClients(prev => prev.map(c => c.id === client.id ? { ...c, needs_declaration: newStatus } : c));
@@ -1478,7 +1489,7 @@ export default function App() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Fazer Declaração
+                Vai Fazer
               </button>
               <button 
                 onClick={() => setClientSubTab('not_to_declare')}
@@ -1488,7 +1499,17 @@ export default function App() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Não Fazer Declaração
+                Não Vai
+              </button>
+              <button 
+                onClick={() => setClientSubTab('pending')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  clientSubTab === 'pending' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Sem Resposta
               </button>
             </div>
 
@@ -1624,19 +1645,27 @@ export default function App() {
                               className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
                                 updatingClientId === client.id ? 'opacity-50 cursor-not-allowed' : ''
                               } ${
-                                client.needs_declaration === 1 
+                                (client.needs_declaration ?? 2) === 1 
                                   ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100' 
+                                  : (client.needs_declaration ?? 2) === 0
+                                  ? 'bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100'
                                   : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
                               }`}
                             >
                               {updatingClientId === client.id ? (
                                 <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              ) : client.needs_declaration === 1 ? (
+                              ) : (client.needs_declaration ?? 2) === 1 ? (
                                 <CheckSquare size={14} />
+                              ) : (client.needs_declaration ?? 2) === 0 ? (
+                                <XSquare size={14} />
                               ) : (
-                                <Square size={14} />
+                                <HelpCircle size={14} />
                               )}
-                              <span>{client.needs_declaration === 1 ? 'SIM' : 'NÃO'}</span>
+                              <span>
+                                {(client.needs_declaration ?? 2) === 1 ? 'SIM' : 
+                                 (client.needs_declaration ?? 2) === 0 ? 'NÃO' : 
+                                 'PENDENTE'}
+                              </span>
                             </button>
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -2207,7 +2236,7 @@ export default function App() {
                 const data = Object.fromEntries(formData.entries());
                 await handleUpdateClient(editingClient.id, {
                   ...data,
-                  needs_declaration: data.needs_declaration === 'on' ? 1 : 0
+                  needs_declaration: parseInt(data.needs_declaration as string)
                 } as any);
               }} className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
@@ -2249,9 +2278,17 @@ export default function App() {
                     <input name="email" defaultValue={editingClient.email} type="email" placeholder="cliente@email.com" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" name="needs_declaration" id="edit_needs_decl" defaultChecked={editingClient.needs_declaration === 1} className="w-4 h-4 text-indigo-600 rounded" />
-                  <label htmlFor="edit_needs_decl" className="text-sm font-medium text-slate-700">Necessário fazer declaração?</label>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Vai fazer declaração?</label>
+                  <select 
+                    name="needs_declaration" 
+                    defaultValue={editingClient.needs_declaration}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  >
+                    <option value="1">Sim, vai fazer</option>
+                    <option value="0">Não vai fazer</option>
+                    <option value="2">Não selecionado / Sem resposta</option>
+                  </select>
                 </div>
                 <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setEditingClient(null)} className="flex-1 py-2 text-slate-500 font-bold">Cancelar</button>
@@ -2279,7 +2316,7 @@ export default function App() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     ...data,
-                    needs_declaration: data.needs_declaration === 'on' ? 1 : 0
+                    needs_declaration: parseInt(data.needs_declaration as string)
                   })
                 });
                 setShowNewClient(false);
@@ -2327,9 +2364,17 @@ export default function App() {
                     <input name="email" type="email" placeholder="cliente@email.com" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" name="needs_declaration" id="new_needs_decl" defaultChecked={clientSubTab === 'to_declare'} className="w-4 h-4 text-indigo-600 rounded" />
-                  <label htmlFor="new_needs_decl" className="text-sm font-medium text-slate-700">Necessário fazer declaração?</label>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Vai fazer declaração?</label>
+                  <select 
+                    name="needs_declaration" 
+                    defaultValue={clientSubTab === 'to_declare' ? '1' : clientSubTab === 'not_to_declare' ? '0' : '2'}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  >
+                    <option value="1">Sim, vai fazer</option>
+                    <option value="0">Não vai fazer</option>
+                    <option value="2">Não selecionado / Sem resposta</option>
+                  </select>
                 </div>
                 <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setShowNewClient(false)} className="flex-1 py-2 text-slate-500 font-bold">Cancelar</button>
