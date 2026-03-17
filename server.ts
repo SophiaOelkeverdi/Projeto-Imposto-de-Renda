@@ -153,12 +153,22 @@ app.delete("/api/professionals/:id", adminOnly, async (req, res) => {
 app.get("/api/clients", async (req, res) => {
   const { data, error } = await supabase.from('clients').select('*').order('name', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  
+  // Normalize needs_declaration to 1, 0, or null to handle boolean/integer column variations
+  const normalizedData = data.map((c: any) => ({
+    ...c,
+    needs_declaration: c.needs_declaration === true ? 1 : (c.needs_declaration === false ? 0 : c.needs_declaration)
+  }));
+  
+  res.json(normalizedData);
 });
 
 app.post("/api/clients", async (req, res) => {
   const { code, name, cpf, type, company, phone, email, observations, needs_declaration } = req.body;
-  const needsDecl = needs_declaration !== undefined ? (needs_declaration ? 1 : 0) : 1;
+  
+  // Support 1, 0, or null. Default to null if not provided.
+  const needsDecl = needs_declaration !== undefined ? needs_declaration : null;
+  
   try {
     const { data, error } = await supabase
       .from('clients')
@@ -195,9 +205,10 @@ app.post("/api/clients", async (req, res) => {
 app.patch("/api/clients/:id", async (req, res) => {
   const { id } = req.params;
   const updates = { ...req.body };
-  if (updates.needs_declaration !== undefined) {
-    updates.needs_declaration = updates.needs_declaration ? 1 : 0;
-  }
+  
+  // Remove id from updates if present to avoid Supabase errors
+  delete updates.id;
+
   try {
     const { error } = await supabase.from('clients').update(updates).eq('id', parseInt(id));
     if (error) throw error;

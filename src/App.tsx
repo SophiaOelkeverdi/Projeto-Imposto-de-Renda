@@ -505,9 +505,13 @@ export default function App() {
       const matchesCategory = !clientCategoryFilter || (c.company && c.company.toLowerCase().includes(clientCategoryFilter.toLowerCase()));
       
       const status = c.needs_declaration;
-      const matchesSubTab = clientSubTab === 'to_declare' ? status === 1 : 
-                           clientSubTab === 'not_to_declare' ? status === 0 :
-                           status === null || status === undefined;
+      const isToDeclare = status === 1 || status === true;
+      const isNotToDeclare = status === 0 || status === false;
+      const isPending = status === null || status === undefined;
+      
+      const matchesSubTab = clientSubTab === 'to_declare' ? isToDeclare : 
+                           clientSubTab === 'not_to_declare' ? isNotToDeclare :
+                           isPending;
       
       return matchesSearch && matchesCode && matchesCpf && matchesCategory && matchesSubTab;
     });
@@ -1654,25 +1658,25 @@ export default function App() {
                                 className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
                                   updatingClientId === client.id ? 'opacity-50 cursor-not-allowed' : ''
                                 } ${
-                                  client.needs_declaration === 1 
+                                  (client.needs_declaration === 1 || client.needs_declaration === true)
                                     ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100' 
-                                    : client.needs_declaration === 0
+                                    : (client.needs_declaration === 0 || client.needs_declaration === false)
                                     ? 'bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100'
                                     : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
                                 }`}
                               >
                                 {updatingClientId === client.id ? (
                                   <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : client.needs_declaration === 1 ? (
+                                ) : (client.needs_declaration === 1 || client.needs_declaration === true) ? (
                                   <CheckSquare size={14} />
-                                ) : client.needs_declaration === 0 ? (
+                                ) : (client.needs_declaration === 0 || client.needs_declaration === false) ? (
                                   <XSquare size={14} />
                                 ) : (
                                   <HelpCircle size={14} />
                                 )}
                                 <span>
-                                  {client.needs_declaration === 1 ? 'SIM' : 
-                                   client.needs_declaration === 0 ? 'NÃO' : 
+                                  {(client.needs_declaration === 1 || client.needs_declaration === true) ? 'SIM' : 
+                                   (client.needs_declaration === 0 || client.needs_declaration === false) ? 'NÃO' : 
                                    'PENDENTE'}
                                 </span>
                               </button>
