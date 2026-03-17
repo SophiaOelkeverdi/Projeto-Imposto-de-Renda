@@ -304,6 +304,7 @@ export default function App() {
   const [clientCpfFilter, setClientCpfFilter] = useState('');
   const [clientCategoryFilter, setClientCategoryFilter] = useState('');
   const [updatingClientId, setUpdatingClientId] = useState<number | null>(null);
+  const [editingStatusClientId, setEditingStatusClientId] = useState<number | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editingDeclaration, setEditingDeclaration] = useState<Declaration | null>(null);
   const [currentUser, setCurrentUser] = useState<Professional | null>(() => {
@@ -692,22 +693,16 @@ export default function App() {
     }
   };
 
-  const handleToggleNeedsDeclaration = async (client: Client) => {
-    if (updatingClientId === client.id) return;
-    setUpdatingClientId(client.id);
-    
-    const currentStatus = client.needs_declaration;
-    // Cycle: null/undefined -> 1 (yes) -> 0 (no) -> null
-    let newStatus: number | null = 1;
-    if (currentStatus === 1) newStatus = 0;
-    else if (currentStatus === 0) newStatus = null;
-    else newStatus = 1;
+  const handleUpdateClientStatus = async (clientId: number, newStatus: number | null) => {
+    if (updatingClientId === clientId) return;
+    setUpdatingClientId(clientId);
     
     // Optimistic update
-    setClients(prev => prev.map(c => c.id === client.id ? { ...c, needs_declaration: newStatus } : c));
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, needs_declaration: newStatus } : c));
+    setEditingStatusClientId(null);
     
     try {
-      const res = await authFetch(`/api/clients/${client.id}`, {
+      const res = await authFetch(`/api/clients/${clientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ needs_declaration: newStatus })
@@ -715,16 +710,14 @@ export default function App() {
       if (res.ok) {
         fetchData(); // Refresh to get the new declaration if created
       } else {
-        // Revert on failure
-        setClients(prev => prev.map(c => c.id === client.id ? { ...c, needs_declaration: client.needs_declaration } : c));
-        const errMsg = await parseErrorResponse(res, 'Erro desconhecido');
-        alert(`Erro ao atualizar cliente: ${errMsg}`);
+        fetchData(); // Rollback on failure
+        const errMsg = await parseErrorResponse(res, 'Erro ao atualizar status');
+        alert(errMsg);
       }
     } catch (error) {
-      // Revert on failure
-      setClients(prev => prev.map(c => c.id === client.id ? { ...c, needs_declaration: client.needs_declaration } : c));
-      console.error('Error updating client:', error);
-      alert('Erro de conexão ao atualizar cliente.');
+      console.error('Error updating client status:', error);
+      alert('Erro de conexão ao atualizar status.');
+      fetchData(); // Rollback
     } finally {
       setUpdatingClientId(null);
     }
@@ -1639,34 +1632,51 @@ export default function App() {
                             )}
                           </td>
                           <td className="px-6 py-4">
-                            <button 
-                              onClick={() => handleToggleNeedsDeclaration(client)}
-                              disabled={updatingClientId === client.id}
-                              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                                updatingClientId === client.id ? 'opacity-50 cursor-not-allowed' : ''
-                              } ${
-                                client.needs_declaration === 1 
-                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100' 
-                                  : client.needs_declaration === 0
-                                  ? 'bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100'
-                                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
-                              }`}
-                            >
-                              {updatingClientId === client.id ? (
-                                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              ) : client.needs_declaration === 1 ? (
-                                <CheckSquare size={14} />
-                              ) : client.needs_declaration === 0 ? (
-                                <XSquare size={14} />
-                              ) : (
-                                <HelpCircle size={14} />
-                              )}
-                              <span>
-                                {client.needs_declaration === 1 ? 'SIM' : 
-                                 client.needs_declaration === 0 ? 'NÃO' : 
-                                 'PENDENTE'}
-                              </span>
-                            </button>
+                            {editingStatusClientId === client.id ? (
+                              <select
+                                autoFocus
+                                defaultValue={client.needs_declaration === null ? "null" : client.needs_declaration.toString()}
+                                onBlur={() => setEditingStatusClientId(null)}
+                                onChange={(e) => {
+                                  const val = e.target.value === "null" ? null : parseInt(e.target.value);
+                                  handleUpdateClientStatus(client.id, val);
+                                }}
+                                className="text-[10px] font-bold px-2 py-1 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
+                              >
+                                <option value="null">PENDENTE</option>
+                                <option value="1">SIM</option>
+                                <option value="0">NÃO</option>
+                              </select>
+                            ) : (
+                              <button 
+                                onClick={() => setEditingStatusClientId(client.id)}
+                                disabled={updatingClientId === client.id}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                  updatingClientId === client.id ? 'opacity-50 cursor-not-allowed' : ''
+                                } ${
+                                  client.needs_declaration === 1 
+                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100' 
+                                    : client.needs_declaration === 0
+                                    ? 'bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100'
+                                    : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'
+                                }`}
+                              >
+                                {updatingClientId === client.id ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : client.needs_declaration === 1 ? (
+                                  <CheckSquare size={14} />
+                                ) : client.needs_declaration === 0 ? (
+                                  <XSquare size={14} />
+                                ) : (
+                                  <HelpCircle size={14} />
+                                )}
+                                <span>
+                                  {client.needs_declaration === 1 ? 'SIM' : 
+                                   client.needs_declaration === 0 ? 'NÃO' : 
+                                   'PENDENTE'}
+                                </span>
+                              </button>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
