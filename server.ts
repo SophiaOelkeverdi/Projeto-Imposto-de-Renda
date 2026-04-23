@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -103,9 +102,9 @@ app.post("/api/auth/change-password", async (req, res) => {
   res.json({ success: true });
 });
 
-const uploadDir = path.join(__dirname, "uploads");
+const uploadDir = process.env.NETLIFY ? "/tmp/uploads" : path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
@@ -345,13 +344,15 @@ app.get("/api/declarations", async (req, res) => {
 });
 
 app.post("/api/declarations", async (req, res) => {
-  const { client_id, professional_id, received_date, status, has_tax_to_pay, tax_amount, observations } = req.body;
+  const { client_id, professional_id, received_date, transmission_date, status, has_tax_to_pay, tax_amount, observations } = req.body;
   const profId = professional_id === "" || professional_id == null ? null : parseInt(professional_id);
   try {
     const { data, error } = await supabase
       .from('declarations')
       .insert([{ 
-        client_id: parseInt(client_id), professional_id: profId, received_date: received_date || null, 
+        client_id: parseInt(client_id), professional_id: profId, 
+        received_date: received_date || null, 
+        transmission_date: transmission_date || null,
         status: status || 'Aguardando Documentos', 
         has_tax_to_pay: has_tax_to_pay ? 1 : 0, 
         tax_amount: tax_amount || 0,
@@ -641,8 +642,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(status).json({ error: err.message || "Erro interno do servidor" });
 });
 
+export default app;
+
 async function startServer() {
+  // Skip Vite and static serving if running on Netlify
+  if (process.env.NETLIFY) return;
+
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

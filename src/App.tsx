@@ -141,7 +141,7 @@ const StatusBadge = ({ status }: { status: DeclarationStatus }) => {
   };
 
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colors[status]}`}>
+    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${colors[status]}`}>
       {status}
     </span>
   );
@@ -1025,15 +1025,15 @@ export default function App() {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col p-6">
-        <div className="flex items-center gap-3 mb-10 px-2">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
-            <FileText size={24} />
+      <aside className="w-60 bg-white border-r border-slate-200 flex flex-col p-4">
+        <div className="flex items-center gap-3 mb-8 px-2">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+            <FileText size={20} />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">IR Master</h1>
+          <h1 className="text-lg font-bold tracking-tight text-slate-800">IR Master</h1>
         </div>
 
-        <nav className="space-y-2 flex-1">
+        <nav className="space-y-1 flex-1">
           <SidebarItem 
             icon={LayoutDashboard} 
             label="Dashboard" 
@@ -1109,10 +1109,10 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <header className="flex justify-between items-center mb-8">
+      <main className="flex-1 overflow-y-auto p-6">
+        <header className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">
+            <h2 className="text-xl font-bold text-slate-800">
               {activeTab === 'dashboard' && 'Visão Geral'}
               {activeTab === 'clients' && 'Gestão de Clientes'}
               {activeTab === 'declarations' && 'Controle de Declarações'}
@@ -1184,13 +1184,13 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
                   key={stat.label} 
-                  className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"
+                  className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"
                 >
-                  <div className={`w-10 h-10 ${stat.bg} ${stat.color} rounded-lg flex items-center justify-center mb-4`}>
-                    <stat.icon size={20} />
+                  <div className={`w-8 h-8 ${stat.bg} ${stat.color} rounded-lg flex items-center justify-center mb-2`}>
+                    <stat.icon size={16} />
                   </div>
-                  <p className="text-slate-500 text-sm font-medium">{stat.label}</p>
-                  <h3 className="text-2xl font-bold text-slate-800 mt-1">{stat.value}</h3>
+                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-tight">{stat.label}</p>
+                  <h3 className="text-xl font-bold text-slate-800 mt-1">{stat.value}</h3>
                 </motion.div>
               ))}
             </div>
@@ -1257,7 +1257,7 @@ export default function App() {
             <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
               <button 
                 onClick={() => setDeclarationSubTab('all')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   declarationSubTab === 'all' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -1267,7 +1267,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setDeclarationSubTab('with_tax')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   declarationSubTab === 'with_tax' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -1277,7 +1277,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setDeclarationSubTab('without_tax')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   declarationSubTab === 'without_tax' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -1336,52 +1336,50 @@ export default function App() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-bottom border-slate-200">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Responsável</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Recebimento</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Imposto</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Observações</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ações</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Responsável</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Recebimento</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transmissão</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Imposto</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Observações</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredDeclarations.map((d) => (
                     <tr key={d.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <span className="text-xs font-bold text-slate-400">
                           <span>#</span>
                           <span>{d.client_code || '---'}</span>
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 shrink-0">
                             {d.client_type === 'SOCIO' ? <Building2 size={16} /> : <User size={16} />}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-slate-800">{d.client_name}</p>
+                              <p className="text-sm font-semibold text-slate-800 truncate">{d.client_name}</p>
                               {d.client_code && (
-                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 shrink-0">
                                   <span>#</span>
                                   <span>{d.client_code}</span>
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-400">{d.client_cpf}</p>
-                            {d.client_company && (
-                              <p className="text-[10px] text-indigo-500 font-medium mt-0.5 uppercase">{d.client_company}</p>
-                            )}
+                            <p className="text-[10px] text-slate-400">{d.client_cpf}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <select 
                           value={d.status}
                           onChange={(e) => handleStatusUpdate(d.id, e.target.value as DeclarationStatus)}
-                          className={`text-xs font-bold px-2.5 py-1 rounded-full border-none outline-none cursor-pointer transition-all ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border-none outline-none cursor-pointer transition-all ${
                             d.status === 'Transmitido' ? 'bg-emerald-100 text-emerald-700' :
                             d.status === 'Concluído' ? 'bg-blue-100 text-blue-700' :
                             d.status === 'Aguardando pagamento' ? 'bg-amber-100 text-amber-700' :
@@ -1400,26 +1398,29 @@ export default function App() {
                           <option value="Transmitido">Transmitido</option>
                         </select>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-slate-600">{d.professional_name || 'Não atribuído'}</p>
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-slate-600">{d.professional_name || 'Não atribuído'}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-slate-600">{d.received_date || 'N/A'}</p>
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-slate-600">{d.received_date || 'N/A'}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-slate-600">{d.transmission_date || 'Pendente'}</p>
+                      </td>
+                      <td className="px-4 py-3">
                         {d.has_tax_to_pay ? (
-                          <div className="flex items-center gap-1.5 text-rose-600">
-                            <AlertCircle size={14} />
-                            <span className="text-sm font-medium">
+                          <div className="flex items-center gap-1 text-rose-600">
+                            <AlertCircle size={12} />
+                            <span className="text-xs font-medium">
                               <span>R$ </span>
                               <span>{d.tax_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                             </span>
                           </div>
                         ) : (
-                          <span className="text-sm text-slate-400">N/A</span>
+                          <span className="text-xs text-slate-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <input
                           type="text"
                           defaultValue={d.observations || ''}
@@ -1428,32 +1429,32 @@ export default function App() {
                               handleUpdateDeclaration(d.id, { observations: e.target.value });
                             }
                           }}
-                          placeholder="Adicionar observação..."
-                          className="w-full text-sm text-slate-600 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors px-1 py-0.5"
+                          placeholder="Adicionar..."
+                          className="w-full text-xs text-slate-600 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors px-1 py-0.5"
                         />
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={() => setSelectedDeclaration(d)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                             title="Detalhes"
                           >
-                            <ChevronRight size={18} />
+                            <ChevronRight size={16} />
                           </button>
                           <button 
                             onClick={() => setEditingDeclaration(d)}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Editar Declaração"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Editar"
                           >
-                            <Edit size={18} />
+                            <Edit size={16} />
                           </button>
                           <button 
                             onClick={() => handleDeleteDeclaration(d.id)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Excluir Declaração"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Excluir"
                           >
-                            <Trash2 size={18} />
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>
@@ -1480,7 +1481,7 @@ export default function App() {
             <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
               <button 
                 onClick={() => setClientSubTab('to_declare')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   clientSubTab === 'to_declare' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -1490,7 +1491,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setClientSubTab('not_to_declare')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   clientSubTab === 'not_to_declare' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -1500,7 +1501,7 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setClientSubTab('pending')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   clientSubTab === 'pending' 
                     ? 'bg-white text-indigo-600 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-700'
@@ -1573,12 +1574,12 @@ export default function App() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Declaração</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contato</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Declaração</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1590,52 +1591,52 @@ export default function App() {
 
                       return (
                         <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             <span className="text-xs font-bold text-slate-400">
                               <span>#</span>
                               <span>{client.code || '---'}</span>
                             </span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${!isPF ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${!isPF ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                 {!isPF ? <Building2 size={16} /> : <User size={16} />}
                               </div>
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800">{client.name}</p>
-                                <p className="text-xs text-slate-400">{client.cpf}</p>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 truncate">{client.name}</p>
+                                <p className="text-[10px] text-slate-400">{client.cpf}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col gap-1">
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-0.5">
                               {client.phone && (
-                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                                  <PhoneCall size={12} className="text-slate-400" />
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                                  <PhoneCall size={10} className="text-slate-400" />
                                   <span>{client.phone}</span>
                                 </div>
                               )}
                               {client.email && (
-                                <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                                  <Mail size={12} className="text-slate-400" />
-                                  <span className="truncate max-w-[150px]">{client.email}</span>
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                                  <Mail size={10} className="text-slate-400" />
+                                  <span className="truncate max-w-[120px]">{client.email}</span>
                                 </div>
                               )}
                               {!client.phone && !client.email && (
-                                <span className="text-xs text-slate-400 italic">Não informado</span>
+                                <span className="text-[10px] text-slate-400 italic">N/A</span>
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             {client.company ? (
-                              <span className="text-xs font-medium text-slate-600">
+                              <span className="text-[10px] font-medium text-slate-600">
                                 {client.company.replace(/pesso fisica/gi, 'Pessoa física')}
                               </span>
                             ) : (
-                              <span className="text-xs font-medium text-slate-400 italic">Não informada</span>
+                              <span className="text-[10px] font-medium text-slate-400 italic">Não informada</span>
                             )}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             {editingStatusClientId === client.id ? (
                               <select
                                 autoFocus
@@ -1682,18 +1683,18 @@ export default function App() {
                               </button>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button 
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingClient(client);
                                 }}
-                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all"
                                 title="Editar Cliente"
                               >
-                                <Edit size={16} />
+                                <Edit size={14} />
                               </button>
                               <button 
                                 type="button"
@@ -1701,10 +1702,10 @@ export default function App() {
                                   e.stopPropagation();
                                   handleDeleteClient(client.id);
                                 }}
-                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                                 title="Excluir Cliente"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </td>
@@ -1795,11 +1796,11 @@ export default function App() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-bottom border-slate-200">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Profissional</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total Atribuído</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Concluídas</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Faltam</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Progresso</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Profissional</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Atribuído</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Concluídas</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Faltam</th>
+                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Progresso</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -2181,6 +2182,7 @@ export default function App() {
                   professional_id: data.professional_id === "" ? null : data.professional_id,
                   status: data.status,
                   received_date: data.received_date || null,
+                  transmission_date: data.transmission_date || null,
                   has_tax_to_pay: data.has_tax_to_pay === 'on' ? 1 : 0,
                   tax_amount: parseFloat(data.tax_amount as string) || 0,
                   observations: data.observations || null
@@ -2203,18 +2205,22 @@ export default function App() {
                     <input type="date" name="received_date" defaultValue={editingDeclaration.received_date} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status</label>
-                    <select name="status" defaultValue={editingDeclaration.status} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none">
-                      <option value="Aguardando Documentos">Aguardando Documentos</option>
-                      <option value="Contato Realizado">Contato Realizado</option>
-                      <option value="Recebido">Recebido</option>
-                      <option value="Em processamento">Em processamento</option>
-                      <option value="Aguardando cliente">Aguardando cliente</option>
-                      <option value="Aguardando pagamento">Aguardando pagamento</option>
-                      <option value="Concluído">Concluído</option>
-                      <option value="Transmitido">Transmitido</option>
-                    </select>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Data de Transmissão</label>
+                    <input type="date" name="transmission_date" defaultValue={editingDeclaration.transmission_date} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Status</label>
+                  <select name="status" defaultValue={editingDeclaration.status} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                    <option value="Aguardando Documentos">Aguardando Documentos</option>
+                    <option value="Contato Realizado">Contato Realizado</option>
+                    <option value="Recebido">Recebido</option>
+                    <option value="Em processamento">Em processamento</option>
+                    <option value="Aguardando cliente">Aguardando cliente</option>
+                    <option value="Aguardando pagamento">Aguardando pagamento</option>
+                    <option value="Concluído">Concluído</option>
+                    <option value="Transmitido">Transmitido</option>
+                  </select>
                 </div>
                 <div className="flex items-center gap-2 pt-2">
                   <input type="checkbox" name="has_tax_to_pay" id="edit_has_tax" defaultChecked={editingDeclaration.has_tax_to_pay} className="w-4 h-4 text-indigo-600 rounded" />
@@ -2417,6 +2423,7 @@ export default function App() {
                   body: JSON.stringify({
                     ...data,
                     received_date: data.received_date || null,
+                    transmission_date: data.transmission_date || null,
                     has_tax_to_pay: data.has_tax_to_pay === 'on',
                     tax_amount: parseFloat(data.tax_amount as string || '0'),
                     observations: data.observations || null
@@ -2456,9 +2463,15 @@ export default function App() {
                     <option value="Transmitido">Transmitido</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Data de Recebimento</label>
-                  <input type="date" name="received_date" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Data de Recebimento</label>
+                    <input type="date" name="received_date" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Data de Transmissão</label>
+                    <input type="date" name="transmission_date" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none" />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" name="has_tax_to_pay" id="has_tax" className="w-4 h-4 text-indigo-600 rounded" />
