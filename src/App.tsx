@@ -1782,16 +1782,25 @@ export default function App() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
+                        innerRadius={50}
+                        outerRadius={75}
                         paddingAngle={5}
-                        label={({ name, percentage }) => `${name}: ${percentage}%`}
+                        label={({ percentage }) => percentage > 0 ? `${percentage}%` : ''}
                       >
                         {chartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'][index % 5]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip 
+                        formatter={(value: number) => [`${value}%`, 'Conclusão']}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Legend 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                        wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 500 }}
+                      />
                     </RePieChart>
                   </ResponsiveContainer>
                 </div>
