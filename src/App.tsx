@@ -388,14 +388,19 @@ export default function App() {
       const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
       
       return {
+        id: prof.id,
         name: prof.name,
         total,
         completed,
         remaining,
         percentage
       };
-    });
+    }).filter(prof => prof.total > 0); // Only show professionals with assignments
   }, [professionals, declarations]);
+
+  const chartData = useMemo(() => {
+    return professionalStats.filter(prof => prof.percentage > 0);
+  }, [professionalStats]);
 
   const fetchAttachments = async (declarationId: number) => {
     try {
@@ -1225,7 +1230,7 @@ export default function App() {
                 <div className="space-y-6">
                   {professionals.map(p => {
                     const count = declarations.filter(d => d.professional_id === p.id).length;
-                    const completed = declarations.filter(d => d.professional_id === p.id && d.status === 'Concluído').length;
+                    const completed = declarations.filter(d => d.professional_id === p.id && (d.status === 'Concluído' || d.status === 'Transmitido')).length;
                     const progress = count > 0 ? (completed / count) * 100 : 0;
                     
                     return (
@@ -1333,20 +1338,21 @@ export default function App() {
 
             {/* Table */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-bottom border-slate-200">
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Responsável</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Recebimento</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transmissão</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Imposto</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Observações</th>
-                    <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ações</th>
-                  </tr>
-                </thead>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse table-auto">
+                  <thead>
+                    <tr className="bg-slate-50 border-bottom border-slate-200">
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-16">Cód.</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider min-w-[200px]">Cliente</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-32">Status</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-32">Responsável</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-28">Recebimento</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-28">Transmissão</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-28">Imposto</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider min-w-[150px]">Observações</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-24 text-right">Ações</th>
+                    </tr>
+                  </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredDeclarations.map((d) => (
                     <tr key={d.id} className="hover:bg-slate-50/50 transition-colors group">
@@ -1357,13 +1363,13 @@ export default function App() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 max-w-[250px]">
                           <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 shrink-0">
                             {d.client_type === 'SOCIO' ? <Building2 size={16} /> : <User size={16} />}
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-slate-800 truncate">{d.client_name}</p>
+                              <p className="text-sm font-semibold text-slate-800 truncate" title={d.client_name}>{d.client_name}</p>
                               {d.client_code && (
                                 <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 shrink-0">
                                   <span>#</span>
@@ -1462,6 +1468,7 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
+              </div>
               {filteredDeclarations.length === 0 && (
                 <div className="py-20 text-center">
                   <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
@@ -1574,12 +1581,12 @@ export default function App() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cód.</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contato</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Categoria</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Declaração</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-16">Cód.</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider min-w-[200px]">Cliente</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-32">Contato</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-40">Categoria</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider w-32">Declaração</th>
+                      <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right w-24">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1598,12 +1605,12 @@ export default function App() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 max-w-[250px]">
                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${!isPF ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                 {!isPF ? <Building2 size={16} /> : <User size={16} />}
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-800 truncate">{client.name}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-slate-800 truncate" title={client.name}>{client.name}</p>
                                 <p className="text-[10px] text-slate-400">{client.cpf}</p>
                               </div>
                             </div>
@@ -1747,7 +1754,7 @@ export default function App() {
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Produtividade por Profissional</h3>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={professionalStats}>
+                    <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
@@ -1770,7 +1777,7 @@ export default function App() {
                   <ResponsiveContainer width="100%" height="100%">
                     <RePieChart>
                       <Pie
-                        data={professionalStats}
+                        data={chartData}
                         dataKey="percentage"
                         nameKey="name"
                         cx="50%"
@@ -1780,7 +1787,7 @@ export default function App() {
                         paddingAngle={5}
                         label={({ name, percentage }) => `${name}: ${percentage}%`}
                       >
-                        {professionalStats.map((entry, index) => (
+                        {chartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'][index % 5]} />
                         ))}
                       </Pie>
@@ -1866,7 +1873,7 @@ export default function App() {
                   <div className="p-3 bg-emerald-50 rounded-xl text-center">
                     <p className="text-xs text-emerald-600/60 font-medium uppercase mb-1">Concluídas</p>
                     <p className="text-xl font-bold text-emerald-700">
-                      {declarations.filter(d => d.professional_id === prof.id && d.status === 'Concluído').length}
+                      {declarations.filter(d => d.professional_id === prof.id && (d.status === 'Concluído' || d.status === 'Transmitido')).length}
                     </p>
                   </div>
                 </div>

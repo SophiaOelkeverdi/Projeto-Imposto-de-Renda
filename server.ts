@@ -610,17 +610,19 @@ app.post("/api/import/clients", async (req, res) => {
 app.get("/api/dashboard/stats", async (req, res) => {
   try {
     const { count: total } = await supabase.from('declarations').select('*', { count: 'exact', head: true });
-    const { count: completed } = await supabase.from('declarations').select('*', { count: 'exact', head: true }).eq('status', 'Concluído');
+    // Count both "Concluído" and "Transmitido" as completed for the general count
+    const { count: strictlyCompleted } = await supabase.from('declarations').select('*', { count: 'exact', head: true }).eq('status', 'Concluído');
     const { count: transmitted } = await supabase.from('declarations').select('*', { count: 'exact', head: true }).eq('status', 'Transmitido');
     const { count: taxToPay } = await supabase.from('declarations').select('*', { count: 'exact', head: true }).eq('has_tax_to_pay', 1);
     
-    // In progress is total - completed - transmitted
-    const inProgress = (total || 0) - (completed || 0) - (transmitted || 0);
+    const completedTotal = (strictlyCompleted || 0) + (transmitted || 0);
+    // In progress is total - (completed + transmitted)
+    const inProgress = (total || 0) - completedTotal;
 
     res.json({
       total: total || 0,
       inProgress: inProgress > 0 ? inProgress : 0,
-      completed: completed || 0,
+      completed: completedTotal,
       transmitted: transmitted || 0,
       taxToPay: taxToPay || 0
     });
